@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enrichisseur de données astronomiques</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e293b 0%, #1e3a8a 50%, #1e293b 100%); padding: 1rem; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        h1 { font-size: 2rem; text-align: center; color: #1e293b; margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 1.5rem; }
+        .upload-zone:hover { border-color: #3b82f6; background: #eff6ff; }
+        .file-label { color: #3b82f6; font-weight: 600; font-size: 1.125rem; cursor: pointer; }
+        .selected-file { margin-top: 1rem; color: #475569; }
+        .position-box { background: #dbeafe; border: 2px solid #93c5fd; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .position-title { font-weight: 600; color: #1e40af; font-size: 1.125rem; margin-bottom: 1rem; }
+        .position-data { background: white; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
+        .position-data p { margin: 0.5rem 0; color: #475569; }
+        .btn { width: 100%; padding: 1rem 1.5rem; border: none; border-radius: 0.75rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #3b82f6; color: white; margin-bottom: 1.5rem; }
+        .btn-primary:hover:not(:disabled) { background: #2563eb; }
+        .btn-success { background: #22c55e; color: white; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-edit { background: transparent; border: none; color: #3b82f6; font-weight: 600; padding: 0.5rem 0; cursor: pointer; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; font-weight: 500; color: #475569; margin-bottom: 0.5rem; font-size: 0.875rem; }
+        .input-group input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 1rem; }
+        .map-container { background: white; border-radius: 0.5rem; overflow: hidden; border: 2px solid #93c5fd; margin-bottom: 1rem; }
+        .map-header { background: #3b82f6; color: white; padding: 0.75rem 1rem; font-weight: 600; }
+        #map, #resultMap { height: 300px; }
+        .result-box { background: #dcfce7; border: 2px solid #86efac; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .error-box { background: #fee2e2; border: 2px solid #fca5a5; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .hidden { display: none; }
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enrichisseur de données astronomiques</h1>
+        <p class="subtitle">Ajoutez automatiquement les positions du soleil, de la lune et les coordonnées célestes</p>
+
+        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" style="display:none;" accept=".dat,.txt">
+            <div class="file-label">📁 Choisir un fichier .dat</div>
+            <div id="selectedFile" class="selected-file hidden"></div>
+        </div>
+
+        <div id="errorBox" class="error-box hidden">
+            <strong>Erreur:</strong> <span id="errorMessage"></span>
+        </div>
+
+        <div id="positionBox" class="position-box hidden">
+            <div class="position-title">📍 Vérification de la position géographique</div>
+            
+            <div id="positionDisplay">
+                <div class="position-data">
+                    <p><strong>Latitude:</strong> <span id="displayLat"></span>°</p>
+                    <p><strong>Longitude:</strong> <span id="displayLon"></span>°</p>
+                    <p><strong>Altitude:</strong> <span id="displayAlt"></span> m</p>
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✏️ Modifier la position</button>
+            </div>
+
+            <div id="positionEdit" class="hidden">
+                <div class="input-group">
+                    <label>Latitude (°)</label>
+                    <input type="number" id="editLat" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Longitude (°)</label>
+                    <input type="number" id="editLon" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Altitude (m)</label>
+                    <input type="number" id="editAlt" step="0.1">
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✓ Valider</button>
+            </div>
+
+            <div class="map-container">
+                <div class="map-header">🗺️ Localisation (cliquez pour modifier)</div>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <button id="processBtn" class="btn btn-primary hidden" onclick="processFile()">
+            Enrichir les données
+        </button>
+
+        <div id="resultBox" class="result-box hidden">
+            <h3>✅ Traitement terminé !</h3>
+            <p><strong id="linesProcessed"></strong> lignes traitées</p>
+            <p>Position: <span id="resultPosition"></span></p>
+            
+            <div class="map-container" style="margin: 1rem 0;">
+                <div class="map-header">🗺️ Observatoire</div>
+                <div id="resultMap"></div>
+            </div>
+
+            <button class="btn btn-success" onclick="downloadResult()">
+                ⬇️ Télécharger le fichier enrichi
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script>
+        let currentFile, parsedData, tempPosition, previewMap, previewMarker, resultData;
+
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            currentFile = file;
+            document.getElementById('selectedFile').innerHTML = '✓ ' + file.name;
+            document.getElementById('selectedFile').classList.remove('hidden');
+
+            try {
+                const content = await file.text();
+                parsedData = parseFile(content);
+                
+                if (!parsedData.position) {
+                    showError("Position non trouvée dans le fichier");
+                    return;
+                }
+
+                tempPosition = {...parsedData.position};
+                showPositionBox();
+                initPreviewMap();
+            } catch (err) {
+                showError("Erreur: " + err.message);
+            }
+        });
+
+        function parseFile(content) {
+            const lines = content.split('\n');
+            let position = null, headerLines = [], dataLines = [], inHeader = true;
+
+            for (let line of lines) {
+                if (line.startsWith('# Position:')) {
+                    const coords = line.split(':')[1].trim().split(',');
+                    position = {
+                        lat: parseFloat(coords[0]),
+                        lon: parseFloat(coords[1]),
+                        alt: parseFloat(coords[2])
+                    };
+                }
+                
+                if (line.includes('END OF HEADER')) {
+                    inHeader = false;
+                    const parts = line.split('END OF HEADER');
+                    headerLines.push(parts[0] + 'END OF HEADER');
+                    if (parts[1]?.trim()) dataLines.push(parts[1]);
+                    continue;
+                }
+                
+                (inHeader ? headerLines : dataLines).push(line);
+            }
+            
+            return { position, headerLines, dataLines };
+        }
+
+        function showPositionBox() {
+            document.getElementById('displayLat').textContent = tempPosition.lat;
+            document.getElementById('displayLon').textContent = tempPosition.lon;
+            document.getElementById('displayAlt').textContent = tempPosition.alt;
+            document.getElementById('positionBox').classList.remove('hidden');
+            document.getElementById('processBtn').classList.remove('hidden');
+        }
+
+        function toggleEdit() {
+            const display = document.getElementById('positionDisplay');
+            const edit = document.getElementById('positionEdit');
+            
+            if (edit.classList.contains('hidden')) {
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+                display.classList.add('hidden');
+                edit.classList.remove('hidden');
+            } else {
+                tempPosition.lat = parseFloat(document.getElementById('editLat').value);
+                tempPosition.lon = parseFloat(document.getElementById('editLon').value);
+                tempPosition.alt = parseFloat(document.getElementById('editAlt').value);
+                document.getElementById('displayLat').textContent = tempPosition.lat;
+                document.getElementById('displayLon').textContent = tempPosition.lon;
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                display.classList.remove('hidden');
+                edit.classList.add('hidden');
+                if (previewMarker) {
+                    previewMarker.setLatLng([tempPosition.lat, tempPosition.lon]);
+                    previewMap.setView([tempPosition.lat, tempPosition.lon]);
+                }
+            }
+        }
+
+        function initPreviewMap() {
+            if (previewMap) previewMap.remove();
+
+            previewMap = L.map('map').setView([tempPosition.lat, tempPosition.lon], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(previewMap);
+
+            previewMarker = L.marker([tempPosition.lat, tempPosition.lon], { draggable: true }).addTo(previewMap);
+            previewMarker.bindPopup(`Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`).openPopup();
+
+            previewMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                tempPosition.lat = parseFloat(pos.lat.toFixed(5));
+                tempPosition.lon = parseFloat(pos.lng.toFixed(5));
+                document.getElementById('displayLat').textContent = tempPosition.lat;
+                document.getElementById('displayLon').textContent = tempPosition.lon;
+            });
+
+            previewMap.on('click', function(e) {
+                tempPosition.lat = parseFloat(e.latlng.lat.toFixed(5));
+                tempPosition.lon = parseFloat(e.latlng.lng.toFixed(5));
+                previewMarker.setLatLng(e.latlng);
+                document.getElementById('displayLat').textContent = tempPosition.lat;
+                document.getElementById('displayLon').textContent = tempPosition.lon;
+            });
+        }
+
+        function processFile() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<div class="spinner"></div> Traitement...';
+
+            setTimeout(() => {
+                try {
+                    const { headerLines, dataLines } = parsedData;
+                    let outputLines = [...headerLines];
+                    const headerIndex = outputLines.findIndex(line => line.includes('END OF HEADER'));
+                    
+                    outputLines.splice(headerIndex, 0, 
+                        '# utc_dt; local_dt; temp; sky_temp; freq; msas; zp; sun_alt; moon_alt; ecliptic lon; lat; galactic lon; lat'
+                    );
+                    
+                    const processedData = dataLines.map(line => {
+                        if (!line.trim()) return '';
+                        const parts = line.split(';');
+                        if (parts.length < 7) return line;
+                        
+                        try {
+                            const [utcDt, localDt, temp, skyTemp, freq, msas, zp] = parts;
+                            const astro = calcAstro(utcDt, tempPosition.lat, tempPosition.lon);
+                            return `${utcDt};${localDt};${temp};${skyTemp};${freq};${msas};${zp.trim()};${astro.sunAlt};${astro.moonAlt};${astro.eclipticLon};${astro.eclipticLat};${astro.galacticLon};${astro.galacticLat}`;
+                        } catch (err) {
+                            return line;
+                        }
+                    });
+                    
+                    resultData = {
+                        content: [...outputLines, ...processedData].join('\n'),
+                        linesProcessed: dataLines.filter(l => l.trim() && l.split(';').length >= 7).length,
+                        position: {...tempPosition}
+                    };
+                    
+                    showResult();
+                } catch (err) {
+                    showError(err.message);
+                } finally {
+                    btn.disabled = false;
+                    btn.textContent = 'Enrichir les données';
+                }
+            }, 100);
+        }
+
+        function calcAstro(utcDateStr, lat, lon) {
+            const jd = (new Date(utcDateStr.replace('T', ' ')).getTime() / 86400000) + 2440587.5;
+            const lmst = getLMST(jd, lon);
+            const zenith = azElToRaDec(0, 90, lat, lmst);
+            const ecliptic = raDecToEcliptic(zenith.ra, zenith.dec, jd);
+            const galactic = raDecToGalactic(zenith.ra, zenith.dec);
+            
+            return {
+                sunAlt: calcSunAlt(jd, lat, lon).toFixed(2),
+                moonAlt: calcMoonAlt(jd, lat, lon).toFixed(2),
+                eclipticLon: ecliptic.lon.toFixed(6),
+                eclipticLat: ecliptic.lat.toFixed(6),
+                galacticLon: galactic.lon.toFixed(6),
+                galacticLat: galactic.lat.toFixed(6)
+            };
+        }
+
+        function getLMST(jd, lon) {
+            const T = (jd - 2451545.0) / 36525.0;
+            const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + T * T * (0.000387933 - T / 38710000.0)) % 360;
+            return (gmst + lon + 360) % 360;
+        }
+
+        function azElToRaDec(az, el, lat, lmst) {
+            const toRad = Math.PI / 180;
+            const azR = az * toRad, elR = el * toRad, latR = lat * toRad;
+            const sinDec = Math.sin(elR) * Math.sin(latR) + Math.cos(elR) * Math.cos(latR) * Math.cos(azR);
+            const dec = Math.asin(sinDec);
+            const ha = Math.atan2(-Math.cos(elR) * Math.sin(azR) / Math.cos(dec), (Math.sin(elR) - Math.sin(latR) * sinDec) / (Math.cos(latR) * Math.cos(dec)));
+            return { ra: ((lmst * toRad - ha) * 180 / Math.PI + 360) % 360, dec: dec * 180 / Math.PI };
+        }
+
+        function raDecToEcliptic(ra, dec, jd) {
+            const toRad = Math.PI / 180;
+            const T = (jd - 2451545.0) / 36525.0;
+            const eps = (23.439291 - 0.0130042 * T) * toRad;
+            const raR = ra * toRad, decR = dec * toRad;
+            const lon = Math.atan2(Math.sin(raR) * Math.cos(eps) + Math.tan(decR) * Math.sin(eps), Math.cos(raR));
+            const lat = Math.asin(Math.sin(decR) * Math.cos(eps) - Math.cos(decR) * Math.sin(eps) * Math.sin(raR));
+            return { lon: (lon * 180 / Math.PI + 360) % 360, lat: lat * 180 / Math.PI };
+        }
+
+        function raDecToGalactic(ra, dec) {
+            const toRad = Math.PI / 180;
+            const raNGP = 192.859508 * toRad, decNGP = 27.128336 * toRad, lNCP = 122.932 * toRad;
+            const raR = ra * toRad, decR = dec * toRad;
+            const b = Math.asin(Math.sin(decR) * Math.sin(decNGP) + Math.cos(decR) * Math.cos(decNGP) * Math.cos(raR - raNGP));
+            const l = lNCP - Math.atan2(Math.cos(decR) * Math.sin(raR - raNGP), Math.sin(decR) * Math.cos(decNGP) - Math.cos(decR) * Math.sin(decNGP) * Math.cos(raR - raNGP));
+            return { lon: (l * 180 / Math.PI + 360) % 360, lat: b * 180 / Math.PI };
+        }
+
+        function calcSunAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (280.460 + 0.9856474 * n) % 360;
+            const g = (357.528 + 0.9856003 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda));
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function calcMoonAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (218.316 + 13.176396 * n) % 360;
+            const M = (134.963 + 13.064993 * n) % 360 * Math.PI / 180;
+            const F = (93.272 + 13.229350 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 6.289 * Math.sin(M)) * Math.PI / 180;
+            const beta = 5.128 * Math.sin(F) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda) * Math.cos(beta) - Math.sin(eps) * Math.sin(beta), Math.cos(lambda) * Math.cos(beta));
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda) * Math.cos(beta) + Math.cos(eps) * Math.sin(beta));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function showResult() {
+            document.getElementById('linesProcessed').textContent = resultData.linesProcessed;
+            document.getElementById('resultPosition').textContent = `${resultData.position.lat}°, ${resultData.position.lon}°`;
+            document.getElementById('resultBox').classList.remove('hidden');
+            
+            const map = L.map('resultMap').setView([resultData.position.lat, resultData.position.lon], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            L.marker([resultData.position.lat, resultData.position.lon]).addTo(map).bindPopup('Observatoire').openPopup();
+        }
+
+        function downloadResult() {
+            const blob = new Blob([resultData.content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = currentFile.name.replace('.dat', '.out');
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMessage').textContent = msg;
+            document.getElementById('errorBox').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
