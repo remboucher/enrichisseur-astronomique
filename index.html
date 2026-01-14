@@ -14,7 +14,11 @@
         .upload-zone { border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 1.5rem; }
         .upload-zone:hover { border-color: #3b82f6; background: #eff6ff; }
         .file-label { color: #3b82f6; font-weight: 600; font-size: 1.125rem; cursor: pointer; }
-        .selected-file { margin-top: 1rem; color: #475569; }
+        .files-list { margin-top: 1rem; text-align: left; }
+        .file-item { background: #f1f5f9; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .file-item-name { color: #475569; font-size: 0.9rem; }
+        .file-item-remove { color: #dc2626; cursor: pointer; font-weight: 600; }
+        .file-item-remove:hover { color: #991b1b; }
         .position-box { background: #dbeafe; border: 2px solid #93c5fd; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
         .position-title { font-weight: 600; color: #1e40af; font-size: 1.125rem; margin-bottom: 1rem; }
         .position-data { background: white; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
@@ -23,7 +27,7 @@
         .btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .btn-primary { background: #3b82f6; color: white; margin-bottom: 1.5rem; }
         .btn-primary:hover:not(:disabled) { background: #2563eb; }
-        .btn-success { background: #22c55e; color: white; }
+        .btn-success { background: #22c55e; color: white; margin-top: 1rem; }
         .btn-success:hover { background: #16a34a; }
         .btn-edit { background: transparent; border: none; color: #3b82f6; font-weight: 600; padding: 0.5rem 0; cursor: pointer; }
         .input-group { margin-bottom: 1rem; }
@@ -33,10 +37,16 @@
         .map-header { background: #3b82f6; color: white; padding: 0.75rem 1rem; font-weight: 600; }
         #map, #resultMap { height: 300px; }
         .result-box { background: #dcfce7; border: 2px solid #86efac; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .result-title { font-weight: 600; color: #166534; font-size: 1.125rem; margin-bottom: 1rem; }
+        .processed-files { margin-top: 1rem; }
+        .processed-file { background: white; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .download-btn { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+        .download-btn:hover { background: #2563eb; }
         .error-box { background: #fee2e2; border: 2px solid #fca5a5; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .progress-box { background: #fef3c7; border: 2px solid #fcd34d; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .progress-bar { background: #e5e7eb; height: 24px; border-radius: 12px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-fill { background: #3b82f6; height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.875rem; font-weight: 600; }
         .hidden { display: none; }
-        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(255,255,255,0.3); border-top-color: white; border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -45,9 +55,9 @@
         <p class="subtitle">Ajoutez automatiquement les positions du soleil, de la lune et les coordonnées célestes</p>
 
         <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
-            <input type="file" id="fileInput" style="display:none;" accept=".dat,.txt">
-            <div class="file-label">📁 Choisir un fichier .dat</div>
-            <div id="selectedFile" class="selected-file hidden"></div>
+            <input type="file" id="fileInput" style="display:none;" accept=".dat,.txt" multiple>
+            <div class="file-label">📁 Choisir un ou plusieurs fichiers .dat</div>
+            <div id="filesList" class="files-list hidden"></div>
         </div>
 
         <div id="errorBox" class="error-box hidden">
@@ -56,6 +66,9 @@
 
         <div id="positionBox" class="position-box hidden">
             <div class="position-title">📍 Vérification de la position géographique</div>
+            <p style="color: #1e40af; font-size: 0.875rem; margin-bottom: 1rem;">
+                Position détectée depuis le premier fichier
+            </p>
             
             <div id="positionDisplay">
                 <div class="position-data">
@@ -88,44 +101,71 @@
             </div>
         </div>
 
-        <button id="processBtn" class="btn btn-primary hidden" onclick="processFile()">
-            Enrichir les données
+        <button id="processBtn" class="btn btn-primary hidden" onclick="processFiles()">
+            Enrichir <span id="fileCount"></span> fichier(s)
         </button>
 
+        <div id="progressBox" class="progress-box hidden">
+            <div><strong>Traitement en cours...</strong></div>
+            <div id="progressText" style="color: #92400e; font-size: 0.875rem; margin-top: 0.25rem;"></div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%;">0%</div>
+            </div>
+        </div>
+
         <div id="resultBox" class="result-box hidden">
-            <h3>✅ Traitement terminé !</h3>
-            <p><strong id="linesProcessed"></strong> lignes traitées</p>
-            <p>Position: <span id="resultPosition"></span></p>
+            <div class="result-title">✅ Traitement terminé !</div>
+            <p><strong id="totalProcessed"></strong> fichiers traités avec succès</p>
+            <p>Position utilisée: <span id="resultPosition"></span></p>
             
+            <div class="processed-files" id="processedFilesList"></div>
+
             <div class="map-container" style="margin: 1rem 0;">
                 <div class="map-header">🗺️ Observatoire</div>
                 <div id="resultMap"></div>
             </div>
 
-            <button class="btn btn-success" onclick="downloadResult()">
-                ⬇️ Télécharger le fichier enrichi
+            <button class="btn btn-success" onclick="downloadAllResults()">
+                ⬇️ Télécharger tous les fichiers (ZIP)
             </button>
         </div>
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script>
-        let currentFile, parsedData, tempPosition, previewMap, previewMarker, resultData;
+        let selectedFiles = [];
+        let tempPosition = null;
+        let previewMap = null;
+        let previewMarker = null;
+        let processedResults = [];
+        let combinedResult = null;
+
+        // Créer une icône de pin rouge personnalisée
+        const redPinIcon = L.divIcon({
+            html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C9.373 0 4 5.373 4 12c0 9 12 28 12 28s12-19 12-28c0-6.627-5.373-12-12-12z" fill="#dc2626"/>
+                <circle cx="16" cy="12" r="5" fill="white"/>
+            </svg>`,
+            className: '',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
 
         document.getElementById('fileInput').addEventListener('change', async function(e) {
-            const file = e.target.files[0];
-            if (!file) return;
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
 
-            currentFile = file;
-            document.getElementById('selectedFile').innerHTML = '✓ ' + file.name;
-            document.getElementById('selectedFile').classList.remove('hidden');
+            selectedFiles = files;
+            displayFilesList();
 
             try {
-                const content = await file.text();
-                parsedData = parseFile(content);
+                const content = await files[0].text();
+                const parsedData = parseFile(content);
                 
                 if (!parsedData.position) {
-                    showError("Position non trouvée dans le fichier");
+                    showError("Position non trouvée dans le premier fichier");
                     return;
                 }
 
@@ -136,6 +176,35 @@
                 showError("Erreur: " + err.message);
             }
         });
+
+        function displayFilesList() {
+            const listDiv = document.getElementById('filesList');
+            listDiv.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="file-item-name">✓ ${file.name}</span>
+                    <span class="file-item-remove" onclick="removeFile(${index})">✕</span>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            listDiv.classList.remove('hidden');
+            document.getElementById('fileCount').textContent = selectedFiles.length;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                document.getElementById('filesList').classList.add('hidden');
+                document.getElementById('positionBox').classList.add('hidden');
+                document.getElementById('processBtn').classList.add('hidden');
+            } else {
+                displayFilesList();
+            }
+        }
 
         function parseFile(content) {
             const lines = content.split('\n');
@@ -205,8 +274,11 @@
             previewMap = L.map('map').setView([tempPosition.lat, tempPosition.lon], 10);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(previewMap);
 
-            previewMarker = L.marker([tempPosition.lat, tempPosition.lon], { draggable: true }).addTo(previewMap);
-            previewMarker.bindPopup(`Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`).openPopup();
+            previewMarker = L.marker([tempPosition.lat, tempPosition.lon], { 
+                draggable: true,
+                icon: redPinIcon 
+            }).addTo(previewMap);
+            previewMarker.bindPopup(`<strong>Observatoire</strong><br>Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`).openPopup();
 
             previewMarker.on('dragend', function(e) {
                 const pos = e.target.getLatLng();
@@ -214,6 +286,7 @@
                 tempPosition.lon = parseFloat(pos.lng.toFixed(5));
                 document.getElementById('displayLat').textContent = tempPosition.lat;
                 document.getElementById('displayLon').textContent = tempPosition.lon;
+                previewMarker.setPopupContent(`<strong>Observatoire</strong><br>Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`);
             });
 
             previewMap.on('click', function(e) {
@@ -222,52 +295,104 @@
                 previewMarker.setLatLng(e.latlng);
                 document.getElementById('displayLat').textContent = tempPosition.lat;
                 document.getElementById('displayLon').textContent = tempPosition.lon;
+                previewMarker.setPopupContent(`<strong>Observatoire</strong><br>Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`);
             });
         }
 
-        function processFile() {
+        async function processFiles() {
             const btn = document.getElementById('processBtn');
             btn.disabled = true;
-            btn.innerHTML = '<div class="spinner"></div> Traitement...';
+            
+            document.getElementById('progressBox').classList.remove('hidden');
+            processedResults = [];
+            let allDataLines = [];
+            let commonHeader = null;
 
-            setTimeout(() => {
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const progress = Math.round(((i + 1) / selectedFiles.length) * 100);
+                
+                document.getElementById('progressText').textContent = `Fichier ${i + 1}/${selectedFiles.length}: ${file.name}`;
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressFill').textContent = progress + '%';
+
                 try {
-                    const { headerLines, dataLines } = parsedData;
-                    let outputLines = [...headerLines];
-                    const headerIndex = outputLines.findIndex(line => line.includes('END OF HEADER'));
+                    const content = await file.text();
+                    const result = await processFile(file.name, content);
+                    processedResults.push(result);
                     
-                    outputLines.splice(headerIndex, 0, 
-                        '# utc_dt; local_dt; temp; sky_temp; freq; msas; zp; sun_alt; moon_alt; ecliptic lon; lat; galactic lon; lat'
-                    );
+                    // Garder l'en-tête du premier fichier
+                    if (i === 0) {
+                        commonHeader = result.headerLines;
+                    }
                     
-                    const processedData = dataLines.map(line => {
-                        if (!line.trim()) return '';
-                        const parts = line.split(';');
-                        if (parts.length < 7) return line;
-                        
-                        try {
-                            const [utcDt, localDt, temp, skyTemp, freq, msas, zp] = parts;
-                            const astro = calcAstro(utcDt, tempPosition.lat, tempPosition.lon);
-                            return `${utcDt};${localDt};${temp};${skyTemp};${freq};${msas};${zp.trim()};${astro.sunAlt};${astro.moonAlt};${astro.eclipticLon};${astro.eclipticLat};${astro.galacticLon};${astro.galacticLat}`;
-                        } catch (err) {
-                            return line;
-                        }
-                    });
-                    
-                    resultData = {
-                        content: [...outputLines, ...processedData].join('\n'),
-                        linesProcessed: dataLines.filter(l => l.trim() && l.split(';').length >= 7).length,
-                        position: {...tempPosition}
-                    };
-                    
-                    showResult();
+                    // Collecter toutes les lignes de données
+                    allDataLines = allDataLines.concat(result.processedDataLines);
                 } catch (err) {
-                    showError(err.message);
-                } finally {
-                    btn.disabled = false;
-                    btn.textContent = 'Enrichir les données';
+                    console.error(`Erreur sur ${file.name}:`, err);
                 }
-            }, 100);
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Créer le fichier combiné si plusieurs fichiers
+            if (selectedFiles.length > 1) {
+                // Trier les données par ordre chronologique et filtrer les lignes vides
+                allDataLines = allDataLines.filter(line => line.trim() !== '').sort((a, b) => {
+                    const dateA = a.split(';')[0];
+                    const dateB = b.split(';')[0];
+                    return dateA.localeCompare(dateB);
+                });
+                
+                // Extraire l'identifiant du premier fichier (ex: stars657)
+                const firstFileName = selectedFiles[0].name;
+                const identifierMatch = firstFileName.match(/(stars\d+)/i);
+                const identifier = identifierMatch ? identifierMatch[1] : 'combined';
+                
+                combinedResult = {
+                    filename: `${identifier}_combined_all_data.dat`,
+                    content: [...commonHeader, ...allDataLines].join('\n'),
+                    linesProcessed: allDataLines.length
+                };
+            }
+
+            document.getElementById('progressBox').classList.add('hidden');
+            showResults();
+            btn.disabled = false;
+        }
+
+        async function processFile(filename, content) {
+            const parsed = parseFile(content);
+            const { headerLines, dataLines } = parsed;
+            
+            let outputLines = [...headerLines];
+            const headerIndex = outputLines.findIndex(line => line.includes('END OF HEADER'));
+            
+            outputLines.splice(headerIndex, 0, 
+                '# utc_dt; local_dt; temp; sky_temp; freq; msas; zp; sun_alt; moon_alt; ecliptic lon; lat; galactic lon; lat'
+            );
+            
+            const processedData = dataLines.map(line => {
+                if (!line.trim()) return '';
+                const parts = line.split(';');
+                if (parts.length < 7) return line;
+                
+                try {
+                    const [utcDt, localDt, temp, skyTemp, freq, msas, zp] = parts;
+                    const astro = calcAstro(utcDt, tempPosition.lat, tempPosition.lon);
+                    return `${utcDt};${localDt};${temp};${skyTemp};${freq};${msas};${zp.trim()};${astro.sunAlt};${astro.moonAlt};${astro.eclipticLon};${astro.eclipticLat};${astro.galacticLon};${astro.galacticLat}`;
+                } catch (err) {
+                    return line;
+                }
+            });
+            
+            return {
+                filename: filename,
+                content: [...outputLines, ...processedData].join('\n'),
+                headerLines: outputLines,
+                processedDataLines: processedData,
+                linesProcessed: dataLines.filter(l => l.trim() && l.split(';').length >= 7).length
+            };
         }
 
         function calcAstro(utcDateStr, lat, lon) {
@@ -351,23 +476,90 @@
             return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
         }
 
-        function showResult() {
-            document.getElementById('linesProcessed').textContent = resultData.linesProcessed;
-            document.getElementById('resultPosition').textContent = `${resultData.position.lat}°, ${resultData.position.lon}°`;
+        function showResults() {
+            document.getElementById('totalProcessed').textContent = processedResults.length;
+            document.getElementById('resultPosition').textContent = `${tempPosition.lat}°, ${tempPosition.lon}°`;
+            
+            const listDiv = document.getElementById('processedFilesList');
+            listDiv.innerHTML = '';
+            
+            // Ajouter le fichier combiné en premier si plusieurs fichiers
+            if (combinedResult) {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.style.background = '#fef3c7';
+                div.innerHTML = `
+                    <span><strong>📦 ${combinedResult.filename}</strong> (${combinedResult.linesProcessed} lignes - Toutes les données combinées)</span>
+                    <button class="download-btn" onclick="downloadCombined()">⬇️ Télécharger</button>
+                `;
+                listDiv.appendChild(div);
+            }
+            
+            // Ajouter les fichiers individuels
+            processedResults.forEach((result, index) => {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.innerHTML = `
+                    <span>📄 ${result.filename.replace('.dat', '_astrodata.dat')} (${result.linesProcessed} lignes)</span>
+                    <button class="download-btn" onclick="downloadSingle(${index})">⬇️ Télécharger</button>
+                `;
+                listDiv.appendChild(div);
+            });
+            
             document.getElementById('resultBox').classList.remove('hidden');
             
-            const map = L.map('resultMap').setView([resultData.position.lat, resultData.position.lon], 10);
+            const map = L.map('resultMap').setView([tempPosition.lat, tempPosition.lon], 10);
             L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
-            L.marker([resultData.position.lat, resultData.position.lon]).addTo(map).bindPopup('Observatoire').openPopup();
+            L.marker([tempPosition.lat, tempPosition.lon], { icon: redPinIcon }).addTo(map)
+                .bindPopup('<strong>Observatoire</strong>').openPopup();
         }
 
-        function downloadResult() {
-            const blob = new Blob([resultData.content], { type: 'text/plain' });
+        function downloadSingle(index) {
+            const result = processedResults[index];
+            const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = currentFile.name.replace('.dat', '.out');
+            a.download = result.filename.replace('.dat', '_astrodata.dat');
+            document.body.appendChild(a);
             a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadCombined() {
+            const blob = new Blob([combinedResult.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = combinedResult.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadAllResults() {
+            const zip = new JSZip();
+            
+            // Ajouter le fichier combiné si présent
+            if (combinedResult) {
+                zip.file(combinedResult.filename, combinedResult.content);
+            }
+            
+            // Ajouter tous les fichiers individuels
+            processedResults.forEach(result => {
+                zip.file(result.filename.replace('.dat', '_astrodata.dat'), result.content);
+            });
+            
+            const blob = await zip.generateAsync({type: 'blob'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'fichiers_enrichis.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
             URL.revokeObjectURL(url);
         }
 
