@@ -1,1 +1,572 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Enrichisseur de données astronomiques</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e293b 0%, #1e3a8a 50%, #1e293b 100%); padding: 1rem; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        h1 { font-size: 2rem; text-align: center; color: #1e293b; margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 1.5rem; }
+        .upload-zone:hover { border-color: #3b82f6; background: #eff6ff; }
+        .file-label { color: #3b82f6; font-weight: 600; font-size: 1.125rem; cursor: pointer; }
+        .files-list { margin-top: 1rem; text-align: left; }
+        .file-item { background: #f1f5f9; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .file-item-name { color: #475569; font-size: 0.9rem; }
+        .file-item-remove { color: #dc2626; cursor: pointer; font-weight: 600; }
+        .file-item-remove:hover { color: #991b1b; }
+        .position-box { background: #dbeafe; border: 2px solid #93c5fd; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .position-title { font-weight: 600; color: #1e40af; font-size: 1.125rem; margin-bottom: 1rem; }
+        .position-data { background: white; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
+        .position-data p { margin: 0.5rem 0; color: #475569; }
+        .btn { width: 100%; padding: 1rem 1.5rem; border: none; border-radius: 0.75rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #3b82f6; color: white; margin-bottom: 1.5rem; }
+        .btn-primary:hover:not(:disabled) { background: #2563eb; }
+        .btn-success { background: #22c55e; color: white; margin-top: 1rem; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-edit { background: transparent; border: none; color: #3b82f6; font-weight: 600; padding: 0.5rem 0; cursor: pointer; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; font-weight: 500; color: #475569; margin-bottom: 0.5rem; font-size: 0.875rem; }
+        .input-group input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 1rem; }
+        .map-container { background: white; border-radius: 0.5rem; overflow: hidden; border: 2px solid #93c5fd; margin-bottom: 1rem; }
+        .map-header { background: #3b82f6; color: white; padding: 0.75rem 1rem; font-weight: 600; }
+        #map, #resultMap { height: 300px; }
+        .result-box { background: #dcfce7; border: 2px solid #86efac; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .result-title { font-weight: 600; color: #166534; font-size: 1.125rem; margin-bottom: 1rem; }
+        .processed-files { margin-top: 1rem; }
+        .processed-file { background: white; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .download-btn { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+        .download-btn:hover { background: #2563eb; }
+        .error-box { background: #fee2e2; border: 2px solid #fca5a5; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .progress-box { background: #fef3c7; border: 2px solid #fcd34d; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .progress-bar { background: #e5e7eb; height: 24px; border-radius: 12px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-fill { background: #3b82f6; height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.875rem; font-weight: 600; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Enrichisseur de données astronomiques</h1>
+        <p class="subtitle">Ajoutez automatiquement les positions du soleil, de la lune et les coordonnées célestes</p>
 
+        <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" style="display:none;" accept=".dat,.txt" multiple>
+            <div class="file-label">📁 Choisir un ou plusieurs fichiers .dat</div>
+            <div id="filesList" class="files-list hidden"></div>
+        </div>
+
+        <div id="errorBox" class="error-box hidden">
+            <strong>Erreur:</strong> <span id="errorMessage"></span>
+        </div>
+
+        <div id="positionBox" class="position-box hidden">
+            <div class="position-title">📍 Vérification de la position géographique</div>
+            <p style="color: #1e40af; font-size: 0.875rem; margin-bottom: 1rem;">
+                Position détectée depuis le premier fichier
+            </p>
+            
+            <div id="positionDisplay">
+                <div class="position-data">
+                    <p><strong>Latitude:</strong> <span id="displayLat"></span>°</p>
+                    <p><strong>Longitude:</strong> <span id="displayLon"></span>°</p>
+                    <p><strong>Altitude:</strong> <span id="displayAlt"></span> m</p>
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✏️ Modifier la position</button>
+            </div>
+
+            <div id="positionEdit" class="hidden">
+                <div class="input-group">
+                    <label>Latitude (°)</label>
+                    <input type="number" id="editLat" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Longitude (°)</label>
+                    <input type="number" id="editLon" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Altitude (m)</label>
+                    <input type="number" id="editAlt" step="0.1">
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✓ Valider</button>
+            </div>
+
+            <div class="map-container">
+                <div class="map-header">🗺️ Localisation (cliquez pour modifier)</div>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <button id="processBtn" class="btn btn-primary hidden" onclick="processFiles()">
+            Enrichir <span id="fileCount"></span> fichier(s)
+        </button>
+
+        <div id="progressBox" class="progress-box hidden">
+            <div><strong>Traitement en cours...</strong></div>
+            <div id="progressText" style="color: #92400e; font-size: 0.875rem; margin-top: 0.25rem;"></div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%;">0%</div>
+            </div>
+        </div>
+
+        <div id="resultBox" class="result-box hidden">
+            <div class="result-title">✅ Traitement terminé !</div>
+            <p><strong id="totalProcessed"></strong> fichiers traités avec succès</p>
+            <p>Position utilisée: <span id="resultPosition"></span></p>
+            
+            <div class="processed-files" id="processedFilesList"></div>
+
+            <div class="map-container" style="margin: 1rem 0;">
+                <div class="map-header">🗺️ Observatoire</div>
+                <div id="resultMap"></div>
+            </div>
+
+            <button class="btn btn-success" onclick="downloadAllResults()">
+                ⬇️ Télécharger tous les fichiers (ZIP)
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        let selectedFiles = [];
+        let tempPosition = null;
+        let previewMap = null;
+        let previewMarker = null;
+        let processedResults = [];
+        let combinedResult = null;
+
+        // Créer une icône de pin rouge personnalisée
+        const redPinIcon = L.divIcon({
+            html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C9.373 0 4 5.373 4 12c0 9 12 28 12 28s12-19 12-28c0-6.627-5.373-12-12-12z" fill="#dc2626"/>
+                <circle cx="16" cy="12" r="5" fill="white"/>
+            </svg>`,
+            className: '',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            selectedFiles = files;
+            displayFilesList();
+
+            try {
+                const content = await files[0].text();
+                const parsedData = parseFile(content);
+                
+                if (!parsedData.position) {
+                    showError("Position non trouvée dans le premier fichier");
+                    return;
+                }
+
+                tempPosition = {...parsedData.position};
+                showPositionBox();
+                initPreviewMap();
+            } catch (err) {
+                showError("Erreur: " + err.message);
+            }
+        });
+
+        function displayFilesList() {
+            const listDiv = document.getElementById('filesList');
+            listDiv.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="file-item-name">✓ ${file.name}</span>
+                    <span class="file-item-remove" onclick="removeFile(${index})">✕</span>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            listDiv.classList.remove('hidden');
+            document.getElementById('fileCount').textContent = selectedFiles.length;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                document.getElementById('filesList').classList.add('hidden');
+                document.getElementById('positionBox').classList.add('hidden');
+                document.getElementById('processBtn').classList.add('hidden');
+            } else {
+                displayFilesList();
+            }
+        }
+
+        function parseFile(content) {
+            const lines = content.split('\n');
+            let position = null, headerLines = [], dataLines = [], inHeader = true;
+
+            for (let line of lines) {
+                if (line.startsWith('# Position:')) {
+                    const coords = line.split(':')[1].trim().split(',');
+                    position = {
+                        lat: parseFloat(coords[0]),
+                        lon: parseFloat(coords[1]),
+                        alt: parseFloat(coords[2])
+                    };
+                }
+                
+                if (line.includes('END OF HEADER')) {
+                    inHeader = false;
+                    const parts = line.split('END OF HEADER');
+                    headerLines.push(parts[0] + 'END OF HEADER');
+                    if (parts[1]?.trim()) dataLines.push(parts[1]);
+                    continue;
+                }
+                
+                (inHeader ? headerLines : dataLines).push(line);
+            }
+            
+            return { position, headerLines, dataLines };
+        }
+
+        function showPositionBox() {
+            document.getElementById('displayLat').textContent = tempPosition.lat;
+            document.getElementById('displayLon').textContent = tempPosition.lon;
+            document.getElementById('displayAlt').textContent = tempPosition.alt;
+            document.getElementById('positionBox').classList.remove('hidden');
+            document.getElementById('processBtn').classList.remove('hidden');
+        }
+
+        function toggleEdit() {
+            const display = document.getElementById('positionDisplay');
+            const edit = document.getElementById('positionEdit');
+            
+            if (edit.classList.contains('hidden')) {
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+                display.classList.add('hidden');
+                edit.classList.remove('hidden');
+            } else {
+                tempPosition.lat = parseFloat(document.getElementById('editLat').value);
+                tempPosition.lon = parseFloat(document.getElementById('editLon').value);
+                tempPosition.alt = parseFloat(document.getElementById('editAlt').value);
+                document.getElementById('displayLat').textContent = tempPosition.lat;
+                document.getElementById('displayLon').textContent = tempPosition.lon;
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                display.classList.remove('hidden');
+                edit.classList.add('hidden');
+                if (previewMarker) {
+                    previewMarker.setLatLng([tempPosition.lat, tempPosition.lon]);
+                    previewMap.setView([tempPosition.lat, tempPosition.lon]);
+                }
+            }
+        }
+
+        function initPreviewMap() {
+            if (previewMap) previewMap.remove();
+
+            previewMap = L.map('map').setView([tempPosition.lat, tempPosition.lon], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(previewMap);
+
+            previewMarker = L.marker([tempPosition.lat, tempPosition.lon], { 
+                draggable: true,
+                icon: redPinIcon 
+            }).addTo(previewMap);
+            previewMarker.bindPopup(`<strong>Observatoire</strong><br>Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`).openPopup();
+
+            previewMarker.on('dragend', function(e) {
+                const pos = e.target.getLatLng();
+                tempPosition.lat = parseFloat(pos.lat.toFixed(5));
+                tempPosition.lon = parseFloat(pos.lng.toFixed(5));
+                document.getElementById('displayLat').textContent = tempPosition.lat;
+                document.getElementById('displayLon').textContent = tempPosition.lon;
+                previewMarker.setPopupContent(`<strong>Observatoire</strong><br>Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`);
+            });
+
+            previewMap.on('click', function(e) {
+                tempPosition.lat = parseFloat(e.latlng.lat.toFixed(5));
+                tempPosition.lon = parseFloat(e.latlng.lng.toFixed(5));
+                previewMarker.setLatLng(e.latlng);
+                document.getElementById('displayLat').textContent = tempPosition.lat;
+                document.getElementById('displayLon').textContent = tempPosition.lon;
+                previewMarker.setPopupContent(`<strong>Observatoire</strong><br>Lat: ${tempPosition.lat}°<br>Lon: ${tempPosition.lon}°`);
+            });
+        }
+
+        async function processFiles() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = true;
+            
+            document.getElementById('progressBox').classList.remove('hidden');
+            processedResults = [];
+            let allDataLines = [];
+            let commonHeader = null;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const progress = Math.round(((i + 1) / selectedFiles.length) * 100);
+                
+                document.getElementById('progressText').textContent = `Fichier ${i + 1}/${selectedFiles.length}: ${file.name}`;
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressFill').textContent = progress + '%';
+
+                try {
+                    const content = await file.text();
+                    const result = await processFile(file.name, content);
+                    processedResults.push(result);
+                    
+                    // Garder l'en-tête du premier fichier
+                    if (i === 0) {
+                        commonHeader = result.headerLines;
+                    }
+                    
+                    // Collecter toutes les lignes de données
+                    allDataLines = allDataLines.concat(result.processedDataLines);
+                } catch (err) {
+                    console.error(`Erreur sur ${file.name}:`, err);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Créer le fichier combiné si plusieurs fichiers
+            if (selectedFiles.length > 1) {
+                // Trier les données par ordre chronologique et filtrer les lignes vides
+                allDataLines = allDataLines.filter(line => line.trim() !== '').sort((a, b) => {
+                    const dateA = a.split(';')[0];
+                    const dateB = b.split(';')[0];
+                    return dateA.localeCompare(dateB);
+                });
+                
+                // Extraire l'identifiant du premier fichier (ex: stars657)
+                const firstFileName = selectedFiles[0].name;
+                const identifierMatch = firstFileName.match(/(stars\d+)/i);
+                const identifier = identifierMatch ? identifierMatch[1] : 'combined';
+                
+                combinedResult = {
+                    filename: `${identifier}_combined_all_data.dat`,
+                    content: [...commonHeader, ...allDataLines].join('\n'),
+                    linesProcessed: allDataLines.length
+                };
+            }
+
+            document.getElementById('progressBox').classList.add('hidden');
+            showResults();
+            btn.disabled = false;
+        }
+
+        async function processFile(filename, content) {
+            const parsed = parseFile(content);
+            const { headerLines, dataLines } = parsed;
+            
+            let outputLines = [...headerLines];
+            const headerIndex = outputLines.findIndex(line => line.includes('END OF HEADER'));
+            
+            outputLines.splice(headerIndex, 0, 
+                '# utc_dt; local_dt; temp; sky_temp; freq; msas; zp; sun_alt; moon_alt; ecliptic lon; lat; galactic lon; lat'
+            );
+            
+            const processedData = dataLines.map(line => {
+                if (!line.trim()) return '';
+                const parts = line.split(';');
+                if (parts.length < 7) return line;
+                
+                try {
+                    const [utcDt, localDt, temp, skyTemp, freq, msas, zp] = parts;
+                    const astro = calcAstro(utcDt, tempPosition.lat, tempPosition.lon);
+                    return `${utcDt};${localDt};${temp};${skyTemp};${freq};${msas};${zp.trim()};${astro.sunAlt};${astro.moonAlt};${astro.eclipticLon};${astro.eclipticLat};${astro.galacticLon};${astro.galacticLat}`;
+                } catch (err) {
+                    return line;
+                }
+            });
+            
+            return {
+                filename: filename,
+                content: [...outputLines, ...processedData].join('\n'),
+                headerLines: outputLines,
+                processedDataLines: processedData,
+                linesProcessed: dataLines.filter(l => l.trim() && l.split(';').length >= 7).length
+            };
+        }
+
+        function calcAstro(utcDateStr, lat, lon) {
+            const jd = (new Date(utcDateStr.replace('T', ' ')).getTime() / 86400000) + 2440587.5;
+            const lmst = getLMST(jd, lon);
+            const zenith = azElToRaDec(0, 90, lat, lmst);
+            const ecliptic = raDecToEcliptic(zenith.ra, zenith.dec, jd);
+            const galactic = raDecToGalactic(zenith.ra, zenith.dec);
+            
+            return {
+                sunAlt: calcSunAlt(jd, lat, lon).toFixed(2),
+                moonAlt: calcMoonAlt(jd, lat, lon).toFixed(2),
+                eclipticLon: ecliptic.lon.toFixed(6),
+                eclipticLat: ecliptic.lat.toFixed(6),
+                galacticLon: galactic.lon.toFixed(6),
+                galacticLat: galactic.lat.toFixed(6)
+            };
+        }
+
+        function getLMST(jd, lon) {
+            const T = (jd - 2451545.0) / 36525.0;
+            const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + T * T * (0.000387933 - T / 38710000.0)) % 360;
+            return (gmst + lon + 360) % 360;
+        }
+
+        function azElToRaDec(az, el, lat, lmst) {
+            const toRad = Math.PI / 180;
+            const azR = az * toRad, elR = el * toRad, latR = lat * toRad;
+            const sinDec = Math.sin(elR) * Math.sin(latR) + Math.cos(elR) * Math.cos(latR) * Math.cos(azR);
+            const dec = Math.asin(sinDec);
+            const ha = Math.atan2(-Math.cos(elR) * Math.sin(azR) / Math.cos(dec), (Math.sin(elR) - Math.sin(latR) * sinDec) / (Math.cos(latR) * Math.cos(dec)));
+            return { ra: ((lmst * toRad - ha) * 180 / Math.PI + 360) % 360, dec: dec * 180 / Math.PI };
+        }
+
+        function raDecToEcliptic(ra, dec, jd) {
+            const toRad = Math.PI / 180;
+            const T = (jd - 2451545.0) / 36525.0;
+            const eps = (23.439291 - 0.0130042 * T) * toRad;
+            const raR = ra * toRad, decR = dec * toRad;
+            const lon = Math.atan2(Math.sin(raR) * Math.cos(eps) + Math.tan(decR) * Math.sin(eps), Math.cos(raR));
+            const lat = Math.asin(Math.sin(decR) * Math.cos(eps) - Math.cos(decR) * Math.sin(eps) * Math.sin(raR));
+            return { lon: (lon * 180 / Math.PI + 360) % 360, lat: lat * 180 / Math.PI };
+        }
+
+        function raDecToGalactic(ra, dec) {
+            const toRad = Math.PI / 180;
+            const raNGP = 192.859508 * toRad, decNGP = 27.128336 * toRad, lNCP = 122.932 * toRad;
+            const raR = ra * toRad, decR = dec * toRad;
+            const b = Math.asin(Math.sin(decR) * Math.sin(decNGP) + Math.cos(decR) * Math.cos(decNGP) * Math.cos(raR - raNGP));
+            const l = lNCP - Math.atan2(Math.cos(decR) * Math.sin(raR - raNGP), Math.sin(decR) * Math.cos(decNGP) - Math.cos(decR) * Math.sin(decNGP) * Math.cos(raR - raNGP));
+            return { lon: (l * 180 / Math.PI + 360) % 360, lat: b * 180 / Math.PI };
+        }
+
+        function calcSunAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (280.460 + 0.9856474 * n) % 360;
+            const g = (357.528 + 0.9856003 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda));
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function calcMoonAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (218.316 + 13.176396 * n) % 360;
+            const M = (134.963 + 13.064993 * n) % 360 * Math.PI / 180;
+            const F = (93.272 + 13.229350 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 6.289 * Math.sin(M)) * Math.PI / 180;
+            const beta = 5.128 * Math.sin(F) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda) * Math.cos(beta) - Math.sin(eps) * Math.sin(beta), Math.cos(lambda) * Math.cos(beta));
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda) * Math.cos(beta) + Math.cos(eps) * Math.sin(beta));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function showResults() {
+            document.getElementById('totalProcessed').textContent = processedResults.length;
+            document.getElementById('resultPosition').textContent = `${tempPosition.lat}°, ${tempPosition.lon}°`;
+            
+            const listDiv = document.getElementById('processedFilesList');
+            listDiv.innerHTML = '';
+            
+            // Ajouter le fichier combiné en premier si plusieurs fichiers
+            if (combinedResult) {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.style.background = '#fef3c7';
+                div.innerHTML = `
+                    <span><strong>📦 ${combinedResult.filename}</strong> (${combinedResult.linesProcessed} lignes - Toutes les données combinées)</span>
+                    <button class="download-btn" onclick="downloadCombined()">⬇️ Télécharger</button>
+                `;
+                listDiv.appendChild(div);
+            }
+            
+            // Ajouter les fichiers individuels
+            processedResults.forEach((result, index) => {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.innerHTML = `
+                    <span>📄 ${result.filename.replace('.dat', '_astrodata.dat')} (${result.linesProcessed} lignes)</span>
+                    <button class="download-btn" onclick="downloadSingle(${index})">⬇️ Télécharger</button>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            document.getElementById('resultBox').classList.remove('hidden');
+            
+            const map = L.map('resultMap').setView([tempPosition.lat, tempPosition.lon], 10);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+            L.marker([tempPosition.lat, tempPosition.lon], { icon: redPinIcon }).addTo(map)
+                .bindPopup('<strong>Observatoire</strong>').openPopup();
+        }
+
+        function downloadSingle(index) {
+            const result = processedResults[index];
+            const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = result.filename.replace('.dat', '_astrodata.dat');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadCombined() {
+            const blob = new Blob([combinedResult.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = combinedResult.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadAllResults() {
+            const zip = new JSZip();
+            
+            // Ajouter le fichier combiné si présent
+            if (combinedResult) {
+                zip.file(combinedResult.filename, combinedResult.content);
+            }
+            
+            // Ajouter tous les fichiers individuels
+            processedResults.forEach(result => {
+                zip.file(result.filename.replace('.dat', '_astrodata.dat'), result.content);
+            });
+            
+            const blob = await zip.generateAsync({type: 'blob'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'fichiers_enrichis.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMessage').textContent = msg;
+            document.getElementById('errorBox').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
