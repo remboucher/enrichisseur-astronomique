@@ -1,0 +1,969 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESS-W astronomical data calculator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: linear-gradient(135deg, #1e293b 0%, #1e3a8a 50%, #1e293b 100%); padding: 1rem; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 1rem; padding: 2rem; box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); }
+        h1 { font-size: 2rem; text-align: center; color: #1e293b; margin-bottom: 0.5rem; }
+        .subtitle { text-align: center; color: #64748b; margin-bottom: 2rem; }
+        .upload-zone { border: 2px dashed #cbd5e1; border-radius: 0.75rem; padding: 2rem; text-align: center; cursor: pointer; transition: all 0.3s; margin-bottom: 1.5rem; }
+        .upload-zone:hover { border-color: #3b82f6; background: #eff6ff; }
+        .upload-zone.dragover { border-color: #3b82f6; background: #eff6ff; transform: scale(1.02); }
+        .file-label { color: #3b82f6; font-weight: 600; font-size: 1.125rem; cursor: pointer; }
+        .files-list { margin-top: 1rem; text-align: left; }
+        .file-item { background: #f1f5f9; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .file-item-name { color: #475569; font-size: 0.9rem; }
+        .file-item-remove { color: #dc2626; cursor: pointer; font-weight: 600; }
+        .file-item-remove:hover { color: #991b1b; }
+        .position-box { background: #dbeafe; border: 2px solid #93c5fd; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .position-title { font-weight: 600; color: #1e40af; font-size: 1.125rem; margin-bottom: 1rem; }
+        .position-data { background: white; border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; }
+        .position-data p { margin: 0.5rem 0; color: #475569; }
+        .btn { width: 100%; padding: 1rem 1.5rem; border: none; border-radius: 0.75rem; font-weight: 600; font-size: 1rem; cursor: pointer; transition: all 0.3s; }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .btn-primary { background: #3b82f6; color: white; margin-bottom: 1.5rem; }
+        .btn-primary:hover:not(:disabled) { background: #2563eb; }
+        .btn-success { background: #22c55e; color: white; margin-top: 1rem; }
+        .btn-success:hover { background: #16a34a; }
+        .btn-edit { background: transparent; border: none; color: #3b82f6; font-weight: 600; padding: 0.5rem 0; cursor: pointer; }
+        .input-group { margin-bottom: 1rem; }
+        .input-group label { display: block; font-weight: 500; color: #475569; margin-bottom: 0.5rem; font-size: 0.875rem; }
+        .input-group input { width: 100%; padding: 0.5rem 0.75rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 1rem; }
+        .map-container { background: white; border-radius: 0.5rem; overflow: hidden; border: 2px solid #93c5fd; margin-bottom: 1rem; }
+        .map-header { background: #3b82f6; color: white; padding: 0.75rem 1rem; font-weight: 600; }
+        #map { height: 300px; }
+        .result-box { background: #dcfce7; border: 2px solid #86efac; border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 1.5rem; }
+        .result-title { font-weight: 600; color: #166534; font-size: 1.125rem; margin-bottom: 1rem; }
+        .processed-files { margin-top: 1rem; }
+        .processed-file { background: white; padding: 0.75rem; margin: 0.5rem 0; border-radius: 0.5rem; display: flex; justify-content: space-between; align-items: center; }
+        .download-btn { background: #3b82f6; color: white; border: none; padding: 0.5rem 1rem; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+        .download-btn:hover { background: #2563eb; }
+        .error-box { background: #fee2e2; border: 2px solid #fca5a5; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .progress-box { background: #fef3c7; border: 2px solid #fcd34d; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; }
+        .progress-bar { background: #e5e7eb; height: 24px; border-radius: 12px; overflow: hidden; margin-top: 0.5rem; }
+        .progress-fill { background: #3b82f6; height: 100%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: white; font-size: 0.875rem; font-weight: 600; }
+        .hidden { display: none; }
+        .info-box { background: #e0f2fe; border: 2px solid #7dd3fc; border-radius: 0.75rem; padding: 1rem; margin-bottom: 1.5rem; font-size: 0.9rem; color: #0c4a6e; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TESS-W astronomical data calculator</h1>
+        <p class="subtitle">Automatically calculates and adds sun altitude, moon altitude, galactic latitude, and rolling standard deviation</p>
+
+        <div class="info-box">
+            <strong>Columns added:</strong> sun_alt, moon_alt, gal_lat, sd_10min<br>
+            
+            <strong>Note:</strong> Upload files from only one photometer at a time. Multiple files from the same photometer will be automatically combined into a single file.
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <div onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" style="display:none;" accept=".dat,.txt" multiple>
+                <div class="file-label">📁 Choose one or more .dat files<br><span style="font-size: 0.9rem; color: #64748b;">or drag and drop here</span></div>
+            </div>
+            <div id="filesList" class="files-list hidden"></div>
+        </div>
+
+        <div id="errorBox" class="error-box hidden">
+            <strong>Error:</strong> <span id="errorMessage"></span>
+        </div>
+
+        <div id="warningBox" class="error-box hidden" style="background: #fef3c7; border-color: #fcd34d;">
+            <strong style="color: #92400e;">⚠️ Warning:</strong> <span id="warningMessage" style="color: #92400e;"></span>
+        </div>
+
+        <div id="positionBox" class="position-box hidden">
+            <div class="position-title" id="positionTitle">📍 Geographic position verification</div>
+            <p id="positionNote" style="color: #1e40af; font-size: 0.875rem; margin-bottom: 1rem;">
+                Position detected from first file
+            </p>
+            
+            <div id="positionDisplay">
+                <div class="position-data">
+                    <p><strong>Latitude:</strong> <span id="displayLat"></span>°</p>
+                    <p><strong>Longitude:</strong> <span id="displayLon"></span>°</p>
+                    <p><strong>Altitude:</strong> <span id="displayAlt"></span> m</p>
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✏️ Edit position</button>
+            </div>
+
+            <div id="positionEdit" class="hidden">
+                <div class="input-group">
+                    <label>Latitude (°)</label>
+                    <input type="number" id="editLat" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Longitude (°)</label>
+                    <input type="number" id="editLon" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Altitude (m)</label>
+                    <input type="number" id="editAlt" step="0.1">
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✓ Validate Position</button>
+            </div>
+
+            <div class="map-container">
+                <div class="map-header">🗺️ Location (click to modify)</div>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <button id="processBtn" class="btn btn-primary hidden" onclick="processFiles()">
+            Process <span id="fileCount"></span> file(s)
+        </button>
+
+        <div id="progressBox" class="progress-box hidden">
+            <div><strong>Processing...</strong></div>
+            <div id="progressText" style="color: #92400e; font-size: 0.875rem; margin-top: 0.25rem;"></div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%;">0%</div>
+            </div>
+        </div>
+
+        <div id="resultBox" class="result-box hidden">
+            <div class="result-title">✅ Processing complete!</div>
+            <p><strong id="totalProcessed"></strong> files processed successfully</p>
+            <p>Position used: <span id="resultPosition"></span></p>
+            
+            <div class="processed-files" id="processedFilesList"></div>
+
+            <button class="btn btn-success" onclick="downloadAllResults()">
+                ⬇️ Download all files (ZIP)
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        let selectedFiles = [];
+        let tempPosition = null;
+        let previewMap = null;
+        let previewMarker = null;
+        let processedResults = [];
+        let combinedResults = [];  // Array to hold combined files per photometer
+        let positionValidated = false;  // Track if position needs validation
+
+        // Créer une icône de pin rouge personnalisée
+        const redPinIcon = L.divIcon({
+            html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C9.373 0 4 5.373 4 12c0 9 12 28 12 28s12-19 12-28c0-6.627-5.373-12-12-12z" fill="#dc2626"/>
+                <circle cx="16" cy="12" r="5" fill="white"/>
+            </svg>`,
+            className: '',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
+
+        // Gestion du drag & drop
+        const uploadZone = document.getElementById('uploadZone');
+        
+        uploadZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.style.borderColor = '#3b82f6';
+            uploadZone.style.background = '#eff6ff';
+        });
+        
+        uploadZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.style.borderColor = '#cbd5e1';
+            uploadZone.style.background = '';
+        });
+        
+        uploadZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.style.borderColor = '#cbd5e1';
+            uploadZone.style.background = '';
+            
+            const files = Array.from(e.dataTransfer.files).filter(f => 
+                f.name.endsWith('.dat') || f.name.endsWith('.txt')
+            );
+            
+            if (files.length > 0) {
+                selectedFiles = files;
+                handleFilesLoaded();
+            }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            selectedFiles = files;
+            handleFilesLoaded();
+        });
+
+        async function handleFilesLoaded() {
+            displayFilesList();
+            document.getElementById('errorBox').classList.add('hidden');
+            document.getElementById('warningBox').classList.add('hidden');
+            document.getElementById('positionBox').classList.add('hidden');
+            document.getElementById('processBtn').classList.add('hidden');
+
+            // Check if files are from different photometers
+            const photometerIds = new Set();
+            selectedFiles.forEach(file => {
+                const photometerMatch = file.name.match(/(stars\d+)/i);
+                if (photometerMatch) {
+                    photometerIds.add(photometerMatch[1].toLowerCase());
+                }
+            });
+
+            // Error if multiple photometers detected
+            if (photometerIds.size > 1) {
+                showError(`Multiple photometers detected (${Array.from(photometerIds).join(', ')}). Please upload files from only one photometer at a time.`);
+                selectedFiles = [];
+                document.getElementById('filesList').classList.add('hidden');
+                return;
+            }
+
+            try {
+                const content = await selectedFiles[0].text();
+                const parsedData = parseFile(content);
+                
+                console.log('Parsed data:', parsedData);
+                console.log('Position from file:', parsedData.position);
+                
+                // Check if position is missing or invalid
+                const hasValidPosition = parsedData.position && 
+                                        !isNaN(parsedData.position.lat) && 
+                                        !isNaN(parsedData.position.lon) && 
+                                        !isNaN(parsedData.position.alt);
+                
+                console.log('Has valid position:', hasValidPosition);
+                
+                // Always initialize with valid coordinates
+                if (!hasValidPosition) {
+                    // No GPS coordinates - use Montreal as default
+                    console.log('❌ No valid GPS coordinates found - using Montreal as default');
+                    tempPosition = {
+                        lat: 45.5017,
+                        lon: -73.5673,
+                        alt: 50
+                    };
+                    positionValidated = false;
+                    
+                    // Show prominent warning box at top
+                    const warningMsg = '<strong>GPS coordinates missing!</strong> The uploaded files do not contain location data. Please click on the map below to identify the TESS-W photometer location, then click "Validate Position" to proceed.';
+                    console.log('Setting warning message:', warningMsg);
+                    document.getElementById('warningMessage').innerHTML = warningMsg;
+                    document.getElementById('warningBox').classList.remove('hidden');
+                    console.log('Warning box should now be visible');
+                    
+                    // Set title and note in position section
+                    document.getElementById('positionTitle').innerHTML = 
+                        '🗺️ Set TESS-W Location';
+                    document.getElementById('positionNote').innerHTML = 
+                        '<strong style="color: #dc2626;">Required:</strong> Click on the map to set the photometer location, or enter coordinates manually.';
+                    document.getElementById('positionNote').style.color = '#991b1b';
+                    
+                    // Show edit mode by default
+                    document.getElementById('positionDisplay').classList.add('hidden');
+                    document.getElementById('positionEdit').classList.remove('hidden');
+                } else {
+                    // GPS coordinates found in file
+                    console.log('✅ Valid GPS coordinates found in file:', parsedData.position);
+                    tempPosition = {
+                        lat: parseFloat(parsedData.position.lat),
+                        lon: parseFloat(parsedData.position.lon),
+                        alt: parseFloat(parsedData.position.alt)
+                    };
+                    positionValidated = true;
+                    
+                    // No warning needed
+                    document.getElementById('warningBox').classList.add('hidden');
+                    
+                    // Set success message
+                    document.getElementById('positionTitle').innerHTML = 
+                        '📍 Geographic position verification';
+                    document.getElementById('positionNote').innerHTML = 
+                        'Position detected from first file';
+                    document.getElementById('positionNote').style.color = '#1e40af';
+                    
+                    // Show display mode
+                    document.getElementById('positionDisplay').classList.remove('hidden');
+                    document.getElementById('positionEdit').classList.add('hidden');
+                }
+                
+                // Update all display fields
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+                
+                // Show position box
+                document.getElementById('positionBox').classList.remove('hidden');
+                
+                // Show process button only if validated
+                if (positionValidated) {
+                    document.getElementById('processBtn').classList.remove('hidden');
+                } else {
+                    console.log('Process button hidden - position needs validation');
+                }
+                
+                // Always initialize map (with delay to ensure DOM is ready)
+                setTimeout(() => {
+                    initPreviewMap();
+                }, 150);
+                
+            } catch (err) {
+                console.error('Error in handleFilesLoaded:', err);
+                showError("Error loading files: " + err.message);
+            }
+        }
+
+        function displayFilesList() {
+            const listDiv = document.getElementById('filesList');
+            listDiv.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="file-item-name">✓ ${file.name}</span>
+                    <span class="file-item-remove" onclick="removeFile(${index})">✕</span>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            listDiv.classList.remove('hidden');
+            document.getElementById('fileCount').textContent = selectedFiles.length;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                document.getElementById('filesList').classList.add('hidden');
+                document.getElementById('positionBox').classList.add('hidden');
+                document.getElementById('processBtn').classList.add('hidden');
+            } else {
+                displayFilesList();
+            }
+        }
+
+        function parseFile(content) {
+            const lines = content.split('\n');
+            let position = null, headerLines = [], dataLines = [], inHeader = true;
+
+            for (let line of lines) {
+                if (line.startsWith('# Position:')) {
+                    const coords = line.split(':')[1].trim().split(',');
+                    const lat = parseFloat(coords[0]);
+                    const lon = parseFloat(coords[1]);
+                    const alt = parseFloat(coords[2]);
+                    
+                    // Only set position if all values are valid numbers
+                    if (!isNaN(lat) && !isNaN(lon) && !isNaN(alt)) {
+                        position = { lat, lon, alt };
+                        console.log('Valid position found in file:', position);
+                    } else {
+                        console.log('Position line found but values are invalid:', coords);
+                    }
+                }
+                
+                if (line.includes('END OF HEADER')) {
+                    inHeader = false;
+                    const parts = line.split('END OF HEADER');
+                    headerLines.push(parts[0] + 'END OF HEADER');
+                    if (parts[1]?.trim()) dataLines.push(parts[1]);
+                    continue;
+                }
+                
+                (inHeader ? headerLines : dataLines).push(line);
+            }
+            
+            console.log('parseFile result - position:', position);
+            return { position, headerLines, dataLines };
+        }
+
+        function showPositionBox() {
+            // Only update if values are valid
+            if (tempPosition && !isNaN(tempPosition.lat) && !isNaN(tempPosition.lon) && !isNaN(tempPosition.alt)) {
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+            }
+            
+            document.getElementById('positionBox').classList.remove('hidden');
+            
+            // Only show process button if position is validated
+            if (positionValidated) {
+                document.getElementById('processBtn').classList.remove('hidden');
+            } else {
+                document.getElementById('processBtn').classList.add('hidden');
+            }
+        }
+
+        function toggleEdit() {
+            const display = document.getElementById('positionDisplay');
+            const edit = document.getElementById('positionEdit');
+            
+            if (edit.classList.contains('hidden')) {
+                // Entering edit mode
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+                display.classList.add('hidden');
+                edit.classList.remove('hidden');
+            } else {
+                // Validating position
+                const newLat = parseFloat(document.getElementById('editLat').value);
+                const newLon = parseFloat(document.getElementById('editLon').value);
+                const newAlt = parseFloat(document.getElementById('editAlt').value);
+                
+                // Validate coordinates
+                if (isNaN(newLat) || isNaN(newLon) || isNaN(newAlt)) {
+                    showError('Invalid coordinates. Please enter valid numbers.');
+                    return;
+                }
+                
+                if (newLat < -90 || newLat > 90) {
+                    showError('Latitude must be between -90 and 90 degrees.');
+                    return;
+                }
+                
+                if (newLon < -180 || newLon > 180) {
+                    showError('Longitude must be between -180 and 180 degrees.');
+                    return;
+                }
+                
+                tempPosition.lat = newLat;
+                tempPosition.lon = newLon;
+                tempPosition.alt = newAlt;
+                
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                
+                // Mark position as validated
+                positionValidated = true;
+                
+                // Clear any warning or error messages
+                document.getElementById('errorBox').classList.add('hidden');
+                document.getElementById('warningBox').classList.add('hidden');
+                
+                // Update UI to show position is now valid
+                document.getElementById('positionTitle').innerHTML = 
+                    '✅ Position validated';
+                document.getElementById('positionNote').innerHTML = 
+                    'TESS-W location has been set. You can now process the files.';
+                document.getElementById('positionNote').style.color = '#166534';
+                
+                display.classList.remove('hidden');
+                edit.classList.add('hidden');
+                
+                if (previewMarker && previewMap) {
+                    previewMarker.setLatLng([tempPosition.lat, tempPosition.lon]);
+                    previewMap.setView([tempPosition.lat, tempPosition.lon], 10);
+                    previewMarker.setPopupContent(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`);
+                }
+                
+                // Show process button
+                document.getElementById('processBtn').classList.remove('hidden');
+            }
+        }
+
+        function initPreviewMap() {
+            console.log('initPreviewMap called with position:', tempPosition);
+            
+            // Ensure we have valid coordinates (use Montreal as absolute fallback)
+            if (!tempPosition || isNaN(tempPosition.lat) || isNaN(tempPosition.lon)) {
+                console.warn('Invalid coordinates detected, using Montreal as fallback');
+                tempPosition = {
+                    lat: 45.5017,
+                    lon: -73.5673,
+                    alt: 50
+                };
+                // Update display
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+            }
+            
+            // Clean up existing map
+            if (previewMap) {
+                try {
+                    previewMap.off();
+                    previewMap.remove();
+                } catch (e) {
+                    console.log('Note: Error removing previous map (this is normal on first load):', e);
+                }
+                previewMap = null;
+                previewMarker = null;
+            }
+            
+            // Clear map container
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer) {
+                console.error('Map container not found!');
+                return;
+            }
+            mapContainer.innerHTML = '';
+            
+            // Initialize map with valid coordinates
+            try {
+                console.log('Creating map at:', tempPosition.lat, tempPosition.lon);
+                
+                previewMap = L.map('map').setView([tempPosition.lat, tempPosition.lon], 8);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(previewMap);
+
+                previewMarker = L.marker([tempPosition.lat, tempPosition.lon], { 
+                    draggable: true,
+                    icon: redPinIcon 
+                }).addTo(previewMap);
+                
+                previewMarker.bindPopup(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`).openPopup();
+
+                // Handle marker drag
+                previewMarker.on('dragend', function(e) {
+                    const pos = e.target.getLatLng();
+                    tempPosition.lat = parseFloat(pos.lat.toFixed(5));
+                    tempPosition.lon = parseFloat(pos.lng.toFixed(5));
+                    document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                    document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                    document.getElementById('editLat').value = tempPosition.lat;
+                    document.getElementById('editLon').value = tempPosition.lon;
+                    previewMarker.setPopupContent(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`);
+                });
+
+                // Handle map click
+                previewMap.on('click', function(e) {
+                    tempPosition.lat = parseFloat(e.latlng.lat.toFixed(5));
+                    tempPosition.lon = parseFloat(e.latlng.lng.toFixed(5));
+                    previewMarker.setLatLng(e.latlng);
+                    document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                    document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                    document.getElementById('editLat').value = tempPosition.lat;
+                    document.getElementById('editLon').value = tempPosition.lon;
+                    previewMarker.setPopupContent(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`);
+                });
+                
+                console.log('Map initialized successfully');
+                
+            } catch (e) {
+                console.error('Error initializing map:', e);
+                showError('Unable to load map. Please refresh the page and try again.');
+            }
+        }
+
+        async function processFiles() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = true;
+            
+            document.getElementById('progressBox').classList.remove('hidden');
+            processedResults = [];
+            combinedResults = [];  // Reset combined results
+            let allDataLines = [];  // Collect all data lines
+            let commonHeader = null;
+            let photometerId = null;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const progress = Math.round(((i + 1) / selectedFiles.length) * 100);
+                
+                document.getElementById('progressText').textContent = `File ${i + 1}/${selectedFiles.length}: ${file.name}`;
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressFill').textContent = progress + '%';
+
+                try {
+                    const content = await file.text();
+                    const result = await processFile(file.name, content);
+                    processedResults.push(result);
+                    
+                    // Keep header from first file
+                    if (i === 0) {
+                        commonHeader = result.headerLines;
+                        // Extract photometer ID
+                        const photometerMatch = file.name.match(/(stars\d+)/i);
+                        photometerId = photometerMatch ? photometerMatch[1].toLowerCase() : 'unknown';
+                    }
+                    
+                    // Collect all data lines
+                    allDataLines = allDataLines.concat(result.processedDataLines);
+                    
+                } catch (err) {
+                    console.error(`Error on ${file.name}:`, err);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Create combined file if multiple files
+            if (selectedFiles.length > 1) {
+                // Sort data chronologically and filter empty lines
+                const sortedData = allDataLines
+                    .filter(line => line.trim() !== '')
+                    .sort((a, b) => {
+                        const dateA = a.split(';')[0];
+                        const dateB = b.split(';')[0];
+                        return dateA.localeCompare(dateB);
+                    });
+                
+                console.log('Recalculating standard deviation for combined file...');
+                // Recalculate rolling standard deviation on combined data
+                // This fixes NaN values at the start of each month (except the first 9 lines overall)
+                const recalculatedData = recalculateStdDevForCombined(sortedData);
+                
+                combinedResults.push({
+                    photometerId: photometerId,
+                    filename: `${photometerId}_combined_all_data.dat`,
+                    content: [...commonHeader, ...recalculatedData].join('\n'),
+                    linesProcessed: recalculatedData.length,
+                    fileCount: selectedFiles.length
+                });
+            }
+
+            document.getElementById('progressBox').classList.add('hidden');
+            showResults();
+            btn.disabled = false;
+        }
+
+        async function processFile(filename, content) {
+            const parsed = parseFile(content);
+            const { headerLines, dataLines } = parsed;
+            
+            let outputLines = [...headerLines];
+            
+            // Find the column names line (line #33) and units line (line #34)
+            // These are typically the 2 lines before END OF HEADER
+            const headerIndex = outputLines.findIndex(line => line.includes('END OF HEADER'));
+            
+            // Line #33 is column names (2 lines before END OF HEADER) - uses COMMAS
+            // Line #34 is units (1 line before END OF HEADER) - uses SEMICOLONS
+            if (headerIndex >= 2) {
+                const namesLineIndex = headerIndex - 2;  // Line #33
+                const unitsLineIndex = headerIndex - 1;  // Line #34
+                
+                // Append column names for new columns to line #33 (with COMMAS)
+                if (outputLines[namesLineIndex]) {
+                    outputLines[namesLineIndex] = outputLines[namesLineIndex].trimEnd() + ', sun_alt, moon_alt, gal_lat, sd_10min';
+                }
+                
+                // Append units for new columns to line #34 (with SEMICOLONS)
+                if (outputLines[unitsLineIndex]) {
+                    outputLines[unitsLineIndex] = outputLines[unitsLineIndex].trimEnd() + '; deg; deg; deg; mag/arcsec^2';
+                }
+            }
+            
+            // Collecter toutes les valeurs MSAS pour le calcul de l'écart-type roulant
+            const msasWindow = [];
+            
+            const processedData = dataLines.map((line, index) => {
+                if (!line.trim()) return '';
+                const parts = line.split(';');
+                if (parts.length < 8) return line;
+                
+                try {
+                    const [utcDt, localDt, temp, skyTemp, freq, msas, zp, seqNum] = parts;
+                    
+                    // Debug: display first line to check format
+                    if (index === 0) {
+                        console.log('Date format detected:', utcDt);
+                    }
+                    
+                    // Astronomical calculations
+                    const astro = calcAstro(utcDt, tempPosition.lat, tempPosition.lon);
+                    
+                    // Add MSAS value to sliding window
+                    const msasValue = parseFloat(msas);
+                    if (!isNaN(msasValue)) {
+                        msasWindow.push(msasValue);
+                        // Keep only last 10 minutes (10 values)
+                        if (msasWindow.length > 10) {
+                            msasWindow.shift();
+                        }
+                    }
+                    
+                    // Calculate rolling standard deviation
+                    const sd10min = calculateStdDev(msasWindow);
+                    
+                    return `${utcDt};${localDt};${temp};${skyTemp};${freq};${msas};${zp.trim()};${seqNum};${astro.sunAlt};${astro.moonAlt};${astro.galLat};${sd10min}`;
+                } catch (err) {
+                    console.error('Error on line', index, ':', err, 'Line:', line);
+                    return line;
+                }
+            });
+            
+            return {
+                filename: filename,
+                content: [...outputLines, ...processedData].join('\n'),
+                headerLines: outputLines,
+                processedDataLines: processedData,
+                linesProcessed: dataLines.filter(l => l.trim() && l.split(';').length >= 8).length
+            };
+        }
+
+        function calculateStdDev(values) {
+            // Display NaN if less than 10 values available
+            if (values.length < 10) return 'NaN';
+            
+            const n = values.length;
+            const mean = values.reduce((sum, val) => sum + val, 0) / n;
+            const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
+            const stdDev = Math.sqrt(variance);
+            
+            return stdDev.toFixed(4);
+        }
+
+        function recalculateStdDevForCombined(dataLines) {
+            // Recalculate rolling standard deviation for combined data
+            // This fixes NaN values that appear at the start of each month when files are combined
+            const msasWindow = [];
+            
+            return dataLines.map((line, index) => {
+                if (!line.trim()) return '';
+                const parts = line.split(';');
+                if (parts.length < 11) return line; // Not enough columns
+                
+                try {
+                    // Extract MSAS value (6th column, index 5)
+                    const msas = parseFloat(parts[5]);
+                    
+                    if (!isNaN(msas)) {
+                        msasWindow.push(msas);
+                        // Keep only last 10 values
+                        if (msasWindow.length > 10) {
+                            msasWindow.shift();
+                        }
+                    }
+                    
+                    // Recalculate standard deviation
+                    const sd10min = calculateStdDev(msasWindow);
+                    
+                    // Replace the last column (sd_10min) with recalculated value
+                    parts[10] = sd10min;
+                    
+                    return parts.join(';');
+                } catch (err) {
+                    console.error('Error recalculating std dev for line', index, ':', err);
+                    return line;
+                }
+            });
+        }
+
+        function calcAstro(utcDateStr, lat, lon) {
+            // Parse UTC date correctly
+            // Possible formats: "2024-01-15T12:30:45", "2024-01-15 12:30:45", "2024-01-15T12:30:45.123"
+            let dateStr = utcDateStr.trim();
+            
+            // Remove milliseconds if present
+            dateStr = dateStr.split('.')[0];
+            
+            // Create date in UTC
+            let date;
+            
+            // Try different formats
+            if (dateStr.includes('T')) {
+                // ISO format with T
+                date = new Date(dateStr + 'Z'); // Add Z to force UTC
+            } else if (dateStr.includes(' ')) {
+                // Format with space - replace with T and add Z
+                date = new Date(dateStr.replace(' ', 'T') + 'Z');
+            } else {
+                // Unknown format - try directly
+                date = new Date(dateStr);
+            }
+            
+            // Check that date is valid
+            if (isNaN(date.getTime())) {
+                console.error('Invalid date:', utcDateStr, '-> parsed as:', date);
+                return {
+                    sunAlt: 'NaN',
+                    moonAlt: 'NaN',
+                    galLat: 'NaN'
+                };
+            }
+            
+            // Calculate Julian Day from UTC date
+            const jd = (date.getTime() / 86400000) + 2440587.5;
+            
+            // Check that JD is valid
+            if (isNaN(jd)) {
+                console.error('Invalid JD for date:', utcDateStr);
+                return {
+                    sunAlt: 'NaN',
+                    moonAlt: 'NaN',
+                    galLat: 'NaN'
+                };
+            }
+            
+            // Calculate zenith position in galactic coordinates
+            const lmst = getLMST(jd, lon);
+            const zenith = azElToRaDec(0, 90, lat, lmst);
+            const galactic = raDecToGalactic(zenith.ra, zenith.dec);
+            
+            // Check calculated values
+            const sunAlt = calcSunAlt(jd, lat, lon);
+            const moonAlt = calcMoonAlt(jd, lat, lon);
+            
+            return {
+                sunAlt: (isNaN(sunAlt) ? 'NaN' : sunAlt.toFixed(2)),
+                moonAlt: (isNaN(moonAlt) ? 'NaN' : moonAlt.toFixed(2)),
+                galLat: (isNaN(galactic.lat) ? 'NaN' : galactic.lat.toFixed(2))
+            };
+        }
+
+        function getLMST(jd, lon) {
+            const T = (jd - 2451545.0) / 36525.0;
+            const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + T * T * (0.000387933 - T / 38710000.0)) % 360;
+            return (gmst + lon + 360) % 360;
+        }
+
+        function azElToRaDec(az, el, lat, lmst) {
+            const toRad = Math.PI / 180;
+            const azR = az * toRad, elR = el * toRad, latR = lat * toRad;
+            const sinDec = Math.sin(elR) * Math.sin(latR) + Math.cos(elR) * Math.cos(latR) * Math.cos(azR);
+            const dec = Math.asin(sinDec);
+            const ha = Math.atan2(-Math.cos(elR) * Math.sin(azR) / Math.cos(dec), (Math.sin(elR) - Math.sin(latR) * sinDec) / (Math.cos(latR) * Math.cos(dec)));
+            return { ra: ((lmst * toRad - ha) * 180 / Math.PI + 360) % 360, dec: dec * 180 / Math.PI };
+        }
+
+        function raDecToGalactic(ra, dec) {
+            const toRad = Math.PI / 180;
+            const raNGP = 192.859508 * toRad, decNGP = 27.128336 * toRad, lNCP = 122.932 * toRad;
+            const raR = ra * toRad, decR = dec * toRad;
+            const b = Math.asin(Math.sin(decR) * Math.sin(decNGP) + Math.cos(decR) * Math.cos(decNGP) * Math.cos(raR - raNGP));
+            const l = lNCP - Math.atan2(Math.cos(decR) * Math.sin(raR - raNGP), Math.sin(decR) * Math.cos(decNGP) - Math.cos(decR) * Math.sin(decNGP) * Math.cos(raR - raNGP));
+            return { lon: (l * 180 / Math.PI + 360) % 360, lat: b * 180 / Math.PI };
+        }
+
+        function calcSunAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (280.460 + 0.9856474 * n) % 360;
+            const g = (357.528 + 0.9856003 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda));
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function calcMoonAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (218.316 + 13.176396 * n) % 360;
+            const M = (134.963 + 13.064993 * n) % 360 * Math.PI / 180;
+            const F = (93.272 + 13.229350 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 6.289 * Math.sin(M)) * Math.PI / 180;
+            const beta = 5.128 * Math.sin(F) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda) * Math.cos(beta) - Math.sin(eps) * Math.sin(beta), Math.cos(lambda) * Math.cos(beta));
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda) * Math.cos(beta) + Math.cos(eps) * Math.sin(beta));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function showResults() {
+            document.getElementById('totalProcessed').textContent = processedResults.length;
+            document.getElementById('resultPosition').textContent = `${tempPosition.lat}°, ${tempPosition.lon}°`;
+            
+            const listDiv = document.getElementById('processedFilesList');
+            listDiv.innerHTML = '';
+            
+            // Add combined files first (one per photometer)
+            combinedResults.forEach((combinedFile, index) => {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.style.background = '#fef3c7';
+                div.innerHTML = `
+                    <span><strong>📦 ${combinedFile.filename}</strong> (${combinedFile.linesProcessed} lines - ${combinedFile.fileCount} files combined)</span>
+                    <button class="download-btn" onclick="downloadCombined(${index})">⬇️ Download</button>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            // Add individual files
+            processedResults.forEach((result, index) => {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.innerHTML = `
+                    <span>📄 ${result.filename.replace('.dat', '_astrodata.dat')} (${result.linesProcessed} lines)</span>
+                    <button class="download-btn" onclick="downloadSingle(${index})">⬇️ Download</button>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            document.getElementById('resultBox').classList.remove('hidden');
+        }
+
+        function downloadSingle(index) {
+            const result = processedResults[index];
+            const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = result.filename.replace('.dat', '_astrodata.dat');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadCombined(index) {
+            const combinedFile = combinedResults[index];
+            const blob = new Blob([combinedFile.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = combinedFile.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadAllResults() {
+            const zip = new JSZip();
+            
+            // Add all combined files
+            combinedResults.forEach(combinedFile => {
+                zip.file(combinedFile.filename, combinedFile.content);
+            });
+            
+            // Add all individual files
+            processedResults.forEach(result => {
+                zip.file(result.filename.replace('.dat', '_astrodata.dat'), result.content);
+            });
+            
+            const blob = await zip.generateAsync({type: 'blob'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'processed_files.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMessage').textContent = msg;
+            document.getElementById('errorBox').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
