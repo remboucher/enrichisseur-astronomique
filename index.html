@@ -733,7 +733,7 @@
             return dataLines.map((line, index) => {
                 if (!line.trim()) return '';
                 const parts = line.split(';');
-                if (parts.length < 11) return line; // Not enough columns
+                if (parts.length < 12) return line; // Not enough columns
                 
                 try {
                     // Extract MSAS value (6th column, index 5)
@@ -751,7 +751,7 @@
                     const sd10min = calculateStdDev(msasWindow);
                     
                     // Replace the last column (sd_10min) with recalculated value
-                    parts[10] = sd10min;
+                    parts[11] = sd10min;
                     
                     return parts.join(';');
                 } catch (err) {
