@@ -1,0 +1,1885 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TESS-W astronomical data calculator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css" />
+    <style>
+        /* ========================================
+           DESIGN MODERNE - RICEMM HARMONISÉ
+           Palette nocturne élégante et astronomique
+        ======================================== */
+        
+        * { 
+            margin: 0; 
+            padding: 0; 
+            box-sizing: border-box; 
+        }
+        
+        /* Fond simplifié pour iframe */
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(180deg, #0f172a 0%, #1e293b 50%, #0f172a 100%);
+            background-attachment: fixed;
+            min-height: 100vh;
+            padding: 1rem;
+            position: relative;
+            overflow-x: hidden;
+        }
+        
+        /* Container dark mode optimisé iframe */
+        .container { 
+            max-width: 950px; 
+            margin: 0 auto;
+            background: rgba(15, 23, 42, 0.90);
+            backdrop-filter: blur(15px);
+            border-radius: 1.25rem; 
+            padding: 2rem; 
+            box-shadow: 
+                0 20px 60px rgba(0, 0, 0, 0.8),
+                0 0 0 1px rgba(59, 130, 246, 0.3),
+                inset 0 1px 0 0 rgba(255, 255, 255, 0.05);
+            position: relative;
+            z-index: 1;
+        }
+        
+        /* Titre simplifié pour iframe */
+        h1 { 
+            font-size: 2rem; 
+            font-weight: 700;
+            text-align: center; 
+            background: linear-gradient(135deg, #fbbf24 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+        
+        /* Sous-titre clair */
+        .subtitle { 
+            text-align: center; 
+            color: rgba(226, 232, 240, 0.8); 
+            margin-bottom: 2rem;
+            font-size: 0.95rem;
+            line-height: 1.6;
+        }
+        
+        /* Zone d'upload dark mode */
+        .upload-zone { 
+            border: 2px dashed rgba(251, 191, 36, 0.3);
+            border-radius: 1rem; 
+            padding: 2.5rem; 
+            text-align: center; 
+            cursor: pointer; 
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.5) 0%, rgba(15, 23, 42, 0.5) 100%);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .upload-zone::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            left: -2px;
+            right: -2px;
+            bottom: -2px;
+            background: linear-gradient(135deg, #fbbf24, #f59e0b, #fbbf24);
+            border-radius: 1rem;
+            opacity: 0;
+            transition: opacity 0.4s;
+            z-index: -1;
+        }
+        
+        .upload-zone:hover {
+            border-color: transparent;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(251, 191, 36, 0.3);
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+        }
+        
+        .upload-zone:hover::before {
+            opacity: 0.6;
+        }
+        
+        .upload-zone.dragover { 
+            border-color: #fbbf24;
+            background: rgba(251, 191, 36, 0.1);
+            transform: scale(1.02);
+            box-shadow: 0 0 30px rgba(251, 191, 36, 0.4);
+        }
+        
+        /* Label fichier doré lumineux */
+        .file-label { 
+            background: linear-gradient(135deg, #fbbf24 0%, #60a5fa 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            font-weight: 700;
+            font-size: 1.125rem; 
+            cursor: pointer;
+            display: inline-block;
+        }
+        
+        /* Liste fichiers dark */
+        .files-list { 
+            margin-top: 0.75rem; 
+            text-align: left; 
+        }
+        
+        .file-item { 
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+            padding: 0.65rem 1rem; 
+            margin: 0.35rem 0; 
+            border-radius: 0.5rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            border: 1px solid rgba(251, 191, 36, 0.2);
+            transition: all 0.3s;
+        }
+        
+        .file-item:hover {
+            transform: translateX(4px);
+            box-shadow: -4px 0 0 0 #fbbf24;
+            background: linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(15, 23, 42, 0.8) 100%);
+        }
+        
+        .file-item-name { 
+            color: rgba(226, 232, 240, 0.9); 
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+        
+        .file-item-remove { 
+            color: #f87171; 
+            cursor: pointer; 
+            font-weight: 700;
+            transition: all 0.2s;
+            padding: 0.2rem 0.5rem;
+            border-radius: 0.3rem;
+            font-size: 0.8125rem;
+        }
+        
+        .file-item-remove:hover { 
+            background: rgba(248, 113, 113, 0.2);
+            color: #fca5a5;
+        }
+        
+        /* Boîte position dark mode */
+        .position-box { 
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(30, 41, 59, 0.3) 100%);
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 1rem; 
+            padding: 1.5rem; 
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.2);
+        }
+        
+        .position-title { 
+            font-weight: 700;
+            color: #60a5fa; 
+            font-size: 1.125rem; 
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .position-data { 
+            background: rgba(15, 23, 42, 0.6);
+            border-radius: 0.75rem; 
+            padding: 1.25rem; 
+            margin-bottom: 1rem;
+            border: 1px solid rgba(59, 130, 246, 0.3);
+        }
+        
+        .position-data p { 
+            margin: 0.75rem 0; 
+            color: rgba(226, 232, 240, 0.8);
+            font-size: 0.95rem;
+        }
+        
+        .position-data p strong {
+            color: #fbbf24;
+            font-weight: 600;
+        }
+        
+        /* Boutons modernisés dark mode */
+        .btn { 
+            width: 100%; 
+            padding: 1rem 1.5rem; 
+            border: none; 
+            border-radius: 0.75rem; 
+            font-weight: 600; 
+            font-size: 1rem; 
+            cursor: pointer; 
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+        
+        .btn:hover::before {
+            width: 300px;
+            height: 300px;
+        }
+        
+        .btn:disabled { 
+            opacity: 0.5; 
+            cursor: not-allowed; 
+        }
+        
+        .btn-primary { 
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white; 
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+        }
+        
+        .btn-primary:hover:not(:disabled) { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(59, 130, 246, 0.5);
+        }
+        
+        .btn-success { 
+            background: linear-gradient(135deg, #15803d 0%, #22c55e 100%);
+            color: white; 
+            margin-top: 1rem;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+        }
+        
+        .btn-success:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(34, 197, 94, 0.5);
+        }
+        
+        .btn-edit { 
+            background: transparent; 
+            border: none; 
+            color: #60a5fa; 
+            font-weight: 600; 
+            padding: 0.5rem 1rem; 
+            cursor: pointer;
+            transition: all 0.2s;
+            border-radius: 0.5rem;
+        }
+        
+        .btn-edit:hover {
+            background: rgba(59, 130, 246, 0.2);
+        }
+        
+        /* Inputs dark mode */
+        .input-group { 
+            margin-bottom: 1rem; 
+        }
+        
+        .input-group label { 
+            display: block; 
+            font-weight: 600;
+            color: rgba(226, 232, 240, 0.9); 
+            margin-bottom: 0.5rem; 
+            font-size: 0.875rem;
+        }
+        
+        .input-group input { 
+            width: 100%; 
+            padding: 0.75rem 1rem; 
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            border-radius: 0.75rem; 
+            font-size: 1rem;
+            transition: all 0.3s;
+            background: rgba(15, 23, 42, 0.6);
+            color: rgba(226, 232, 240, 0.9);
+        }
+        
+        .input-group input:focus {
+            outline: none;
+            border-color: #60a5fa;
+            background: rgba(30, 41, 59, 0.8);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+        
+        .input-group input::placeholder {
+            color: rgba(148, 163, 184, 0.5);
+        }
+        
+        /* Carte interactive dark mode */
+        .map-container { 
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 1rem; 
+            overflow: hidden; 
+            border: 2px solid rgba(59, 130, 246, 0.3);
+            margin-bottom: 1rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        .map-header { 
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white; 
+            padding: 1rem 1.25rem; 
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        #map { 
+            height: 350px; 
+        }
+        
+        /* Boîte résultats dark mode - compacte */
+        .result-box { 
+            background: linear-gradient(135deg, rgba(21, 128, 61, 0.2) 0%, rgba(22, 101, 52, 0.2) 100%);
+            border: 2px solid rgba(34, 197, 94, 0.3);
+            border-radius: 1rem; 
+            padding: 1.25rem; 
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(34, 197, 94, 0.2);
+            color: rgba(226, 232, 240, 0.95);
+        }
+        
+        .result-box p {
+            color: rgba(226, 232, 240, 0.95);
+            margin: 0.35rem 0;
+        }
+        
+        .result-box strong {
+            color: #4ade80;
+            font-weight: 600;
+        }
+        
+        .result-title { 
+            font-weight: 700;
+            color: #4ade80; 
+            font-size: 1.05rem; 
+            margin-bottom: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .processed-files { 
+            margin-top: 0.75rem; 
+        }
+        
+        .processed-file { 
+            background: rgba(15, 23, 42, 0.6);
+            padding: 0.65rem 1rem; 
+            margin: 0.35rem 0; 
+            border-radius: 0.5rem; 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center;
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            transition: all 0.3s;
+            color: rgba(226, 232, 240, 0.95) !important;
+            font-size: 0.875rem;
+        }
+        
+        .processed-file * {
+            color: rgba(226, 232, 240, 0.95) !important;
+        }
+        
+        .processed-file:hover {
+            transform: translateX(4px);
+            box-shadow: -4px 0 0 0 #22c55e;
+            background: rgba(15, 23, 42, 0.8);
+        }
+        
+        .download-btn { 
+            background: linear-gradient(135deg, #1e40af 0%, #3b82f6 100%);
+            color: white; 
+            border: none; 
+            padding: 0.4rem 0.75rem; 
+            border-radius: 0.375rem; 
+            cursor: pointer; 
+            font-weight: 600;
+            font-size: 0.8125rem;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4);
+        }
+        
+        .download-btn:hover { 
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.5);
+        }
+        
+        /* Toggle Switch Styles */
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 50px;
+            height: 26px;
+            flex-shrink: 0;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .toggle-slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(71, 85, 105, 0.5);
+            border: 2px solid rgba(148, 163, 184, 0.3);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 26px;
+        }
+        
+        .toggle-slider:before {
+            position: absolute;
+            content: "";
+            height: 18px;
+            width: 18px;
+            left: 2px;
+            bottom: 2px;
+            background: white;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            border-radius: 50%;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+        
+        .toggle-switch input:checked + .toggle-slider {
+            background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+            border-color: rgba(251, 191, 36, 0.5);
+            box-shadow: 0 0 10px rgba(251, 191, 36, 0.3);
+        }
+        
+        .toggle-switch input:checked + .toggle-slider:before {
+            transform: translateX(24px);
+            box-shadow: 0 2px 8px rgba(251, 191, 36, 0.4);
+        }
+        
+        .toggle-switch input:focus + .toggle-slider {
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+        }
+        
+        .toggle-slider:hover {
+            border-color: rgba(96, 165, 250, 0.5);
+        }
+        
+        /* Boîtes d'erreur et warning dark mode */
+        .error-box { 
+            background: linear-gradient(135deg, rgba(127, 29, 29, 0.3) 0%, rgba(153, 27, 27, 0.2) 100%);
+            border: 2px solid rgba(248, 113, 113, 0.4);
+            border-radius: 1rem; 
+            padding: 1.25rem; 
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(239, 68, 68, 0.2);
+            color: #fca5a5;
+        }
+        
+        .error-box strong {
+            color: #f87171;
+        }
+        
+        .progress-box { 
+            background: linear-gradient(135deg, rgba(120, 53, 15, 0.3) 0%, rgba(146, 64, 14, 0.2) 100%);
+            border: 2px solid rgba(251, 191, 36, 0.4);
+            border-radius: 1rem; 
+            padding: 1.25rem; 
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(245, 158, 11, 0.2);
+            color: #fcd34d;
+        }
+        
+        .progress-box strong {
+            color: #fbbf24;
+        }
+        
+        .progress-bar { 
+            background: rgba(30, 41, 59, 0.8);
+            height: 28px; 
+            border-radius: 14px; 
+            overflow: hidden; 
+            margin-top: 0.75rem;
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .progress-fill { 
+            background: linear-gradient(90deg, #3b82f6 0%, #60a5fa 50%, #3b82f6 100%);
+            background-size: 200% 100%;
+            animation: shimmer 2s infinite;
+            height: 100%; 
+            transition: width 0.3s; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            color: white; 
+            font-size: 0.875rem; 
+            font-weight: 700;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+        }
+        
+        @keyframes shimmer {
+            0% { background-position: 0% 0%; }
+            100% { background-position: 200% 0%; }
+        }
+        
+        /* Boîte info dark mode */
+        .info-box { 
+            background: linear-gradient(135deg, rgba(30, 58, 138, 0.3) 0%, rgba(30, 64, 175, 0.2) 100%);
+            border: 2px solid rgba(96, 165, 250, 0.4);
+            border-radius: 1rem; 
+            padding: 1.25rem; 
+            margin-bottom: 1.5rem; 
+            font-size: 0.9rem; 
+            color: #bfdbfe;
+            line-height: 1.6;
+        }
+        
+        .info-box strong {
+            color: #60a5fa;
+        }
+        
+        .hidden { 
+            display: none; 
+        }
+        
+        /* Responsive pour petits écrans */
+        @media (max-width: 640px) {
+            .container {
+                padding: 1.5rem;
+                border-radius: 1rem;
+            }
+            
+            h1 {
+                font-size: 1.75rem;
+            }
+            
+            .upload-zone {
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TESS-W astronomical data calculator</h1>
+        <p class="subtitle">Automatically calculates and adds sun altitude, moon altitude, galactic latitude, and rolling standard deviation</p>
+
+        <div class="info-box">
+            <strong>Input format:</strong> Upload TESS-W photometer data archive files in IDA-IAU standard format (.dat)<br>
+            <strong>Columns added:</strong> sun_alt, moon_alt, gal_lat, sd_10min<br>
+            <strong>Names</strong> (comma-separated) added to line #33, <strong>units</strong> (semicolon-separated: deg; deg; deg; mag/arcsec²) added to line #34<br>
+            <strong>Note:</strong> Upload files from only one photometer at a time. Multiple files from the same photometer will be automatically combined into a single file.
+        </div>
+
+        <div class="upload-zone" id="uploadZone">
+            <div onclick="document.getElementById('fileInput').click()">
+                <input type="file" id="fileInput" style="display:none;" accept=".dat,.txt" multiple>
+                <div class="file-label">📁 Choose one or more .dat files<br><span style="font-size: 0.9rem; color: #64748b;">or drag and drop here</span></div>
+            </div>
+            <div id="filesList" class="files-list hidden"></div>
+        </div>
+
+        <div id="errorBox" class="error-box hidden">
+            <strong>Error:</strong> <span id="errorMessage"></span>
+        </div>
+
+        <div id="warningBox" class="error-box hidden" style="background: #fef3c7; border-color: #fcd34d;">
+            <strong style="color: #92400e;">⚠️ Warning:</strong> <span id="warningMessage" style="color: #92400e;"></span>
+        </div>
+
+        <div id="positionBox" class="position-box hidden">
+            <div class="position-title" id="positionTitle">📍 Geographic position verification</div>
+            <p id="positionNote" style="color: #1e40af; font-size: 0.875rem; margin-bottom: 1rem;">
+                Position detected from first file
+            </p>
+            
+            <div id="positionDisplay">
+                <div class="position-data">
+                    <p><strong>Latitude:</strong> <span id="displayLat"></span>°</p>
+                    <p><strong>Longitude:</strong> <span id="displayLon"></span>°</p>
+                    <p><strong>Altitude:</strong> <span id="displayAlt"></span> m</p>
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✏️ Edit position</button>
+            </div>
+
+            <div id="positionEdit" class="hidden">
+                <div class="input-group">
+                    <label>Latitude (°)</label>
+                    <input type="number" id="editLat" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Longitude (°)</label>
+                    <input type="number" id="editLon" step="0.00001">
+                </div>
+                <div class="input-group">
+                    <label>Altitude (m)</label>
+                    <input type="number" id="editAlt" step="0.1">
+                </div>
+                <button class="btn-edit" onclick="toggleEdit()">✓ Validate Position</button>
+            </div>
+
+            <div class="map-container">
+                <div class="map-header">🗺️ Location (click to modify)</div>
+                <div id="map"></div>
+            </div>
+        </div>
+
+        <div id="optionsBox" class="info-box hidden" style="background: linear-gradient(135deg, rgba(96, 165, 250, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%); border-color: rgba(59, 130, 246, 0.3);">
+            <div class="option-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                <strong style="color: #60a5fa; font-size: 1rem;">⚙️ Processing Options</strong>
+            </div>
+            
+            <div class="option-item" style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0;">
+                <div style="flex: 1;">
+                    <label style="font-weight: 600; color: #e2e8f0; display: block; margin-bottom: 0.25rem;">
+                        ☀️ Add Solar Radio Flux 10.7cm
+                    </label>
+                    <p style="font-size: 0.8125rem; color: rgba(226, 232, 240, 0.7); margin: 0;">
+                        Adds daily average Solar Flux (10.7cm) from Space Weather Canada
+                    </p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="solarFluxToggle" onchange="handleSolarFluxToggle()">
+                    <span class="toggle-slider"></span>
+                </label>
+            </div>
+            
+            <div id="solarFluxStatus" class="hidden" style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(34, 197, 94, 0.1); border-radius: 0.5rem; font-size: 0.8125rem; color: #4ade80;">
+                <span id="solarFluxStatusText"></span>
+            </div>
+            
+            <div id="solarFluxManualUpload" class="hidden" style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(251, 191, 36, 0.1); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 0.5rem;">
+                <p style="font-size: 0.8125rem; color: #fbbf24; margin: 0 0 0.5rem 0; font-weight: 600;">
+                    💡 Upload Solar Flux data manually
+                </p>
+                <p style="font-size: 0.75rem; color: rgba(251, 191, 36, 0.8); margin: 0 0 0.5rem 0;">
+                    Visit <a href="https://spaceweather.gc.ca/forecast-prevision/solar-solaire/solarflux/sx-5-en.php" target="_blank" style="color: #fbbf24; text-decoration: underline;">Space Weather Canada</a>, download the text file (fluxtable.txt), and upload it here:
+                </p>
+                <input type="file" id="solarFluxFileInput" accept=".txt" style="font-size: 0.8125rem; color: #e2e8f0; background: rgba(15, 23, 42, 0.6); border: 1px solid rgba(251, 191, 36, 0.3); border-radius: 0.375rem; padding: 0.5rem; width: 100%;" onchange="handleSolarFluxFileUpload(event)">
+            </div>
+        </div>
+
+        <button id="processBtn" class="btn btn-primary hidden" onclick="processFiles()">
+            Process <span id="fileCount"></span> file(s)
+        </button>
+
+        <div id="progressBox" class="progress-box hidden">
+            <div><strong>Processing...</strong></div>
+            <div id="progressText" style="color: #92400e; font-size: 0.875rem; margin-top: 0.25rem;"></div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill" style="width: 0%;">0%</div>
+            </div>
+        </div>
+
+        <div id="resultBox" class="result-box hidden">
+            <div class="result-title">✅ Processing complete!</div>
+            <p><strong id="totalProcessed"></strong> files processed successfully</p>
+            <p>Position used: <span id="resultPosition"></span></p>
+            
+            <div class="processed-files" id="processedFilesList"></div>
+
+            <button class="btn btn-success" onclick="downloadAllResults()">
+                ⬇️ Download all files (ZIP)
+            </button>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script>
+        let selectedFiles = [];
+        let tempPosition = null;
+        let previewMap = null;
+        let previewMarker = null;
+        let processedResults = [];
+        let combinedResults = [];  // Array to hold combined files per photometer
+        let positionValidated = false;  // Track if position needs validation
+        
+        // Solar Flux variables
+        let solarFluxData = null;  // Will store daily averages: {YYYYMMDD: flux_value}
+        let solarFluxEnabled = false;
+        let solarFluxLoading = false;
+
+        // Créer une icône de pin rouge personnalisée
+        const redPinIcon = L.divIcon({
+            html: `<svg width="32" height="40" viewBox="0 0 32 40" xmlns="http://www.w3.org/2000/svg">
+                <path d="M16 0C9.373 0 4 5.373 4 12c0 9 12 28 12 28s12-19 12-28c0-6.627-5.373-12-12-12z" fill="#dc2626"/>
+                <circle cx="16" cy="12" r="5" fill="white"/>
+            </svg>`,
+            className: '',
+            iconSize: [32, 40],
+            iconAnchor: [16, 40],
+            popupAnchor: [0, -40]
+        });
+
+        // Gestion du drag & drop
+        const uploadZone = document.getElementById('uploadZone');
+        
+        uploadZone.addEventListener('dragover', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.style.borderColor = '#3b82f6';
+            uploadZone.style.background = '#eff6ff';
+        });
+        
+        uploadZone.addEventListener('dragleave', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.style.borderColor = '#cbd5e1';
+            uploadZone.style.background = '';
+        });
+        
+        uploadZone.addEventListener('drop', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            uploadZone.style.borderColor = '#cbd5e1';
+            uploadZone.style.background = '';
+            
+            const files = Array.from(e.dataTransfer.files).filter(f => 
+                f.name.endsWith('.dat') || f.name.endsWith('.txt')
+            );
+            
+            if (files.length > 0) {
+                selectedFiles = files;
+                handleFilesLoaded();
+            }
+        });
+
+        document.getElementById('fileInput').addEventListener('change', async function(e) {
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            selectedFiles = files;
+            handleFilesLoaded();
+        });
+
+        async function handleFilesLoaded() {
+            displayFilesList();
+            document.getElementById('errorBox').classList.add('hidden');
+            document.getElementById('warningBox').classList.add('hidden');
+            document.getElementById('positionBox').classList.add('hidden');
+            document.getElementById('processBtn').classList.add('hidden');
+
+            // Check if files are from different photometers
+            const photometerIds = new Set();
+            selectedFiles.forEach(file => {
+                const photometerMatch = file.name.match(/(stars\d+)/i);
+                if (photometerMatch) {
+                    photometerIds.add(photometerMatch[1].toLowerCase());
+                }
+            });
+
+            // Error if multiple photometers detected
+            if (photometerIds.size > 1) {
+                showError(`Multiple photometers detected (${Array.from(photometerIds).join(', ')}). Please upload files from only one photometer at a time.`);
+                selectedFiles = [];
+                document.getElementById('filesList').classList.add('hidden');
+                return;
+            }
+
+            try {
+                const content = await selectedFiles[0].text();
+                const parsedData = parseFile(content);
+                
+                console.log('Parsed data:', parsedData);
+                console.log('Position from file:', parsedData.position);
+                
+                // Check if position is missing or invalid
+                const hasValidPosition = parsedData.position && 
+                                        !isNaN(parsedData.position.lat) && 
+                                        !isNaN(parsedData.position.lon) && 
+                                        !isNaN(parsedData.position.alt);
+                
+                console.log('Has valid position:', hasValidPosition);
+                
+                // Always initialize with valid coordinates
+                if (!hasValidPosition) {
+                    // No GPS coordinates - use Montreal as default
+                    console.log('❌ No valid GPS coordinates found - using Montreal as default');
+                    tempPosition = {
+                        lat: 45.5017,
+                        lon: -73.5673,
+                        alt: 50
+                    };
+                    positionValidated = false;
+                    
+                    // Show prominent warning box at top
+                    const warningMsg = '<strong>GPS coordinates missing!</strong> The uploaded files do not contain location data. Please click on the map below to identify the TESS-W photometer location, then click "Validate Position" to proceed.';
+                    console.log('Setting warning message:', warningMsg);
+                    document.getElementById('warningMessage').innerHTML = warningMsg;
+                    document.getElementById('warningBox').classList.remove('hidden');
+                    console.log('Warning box should now be visible');
+                    
+                    // Set title and note in position section
+                    document.getElementById('positionTitle').innerHTML = 
+                        '🗺️ Set TESS-W Location';
+                    document.getElementById('positionNote').innerHTML = 
+                        '<strong style="color: #dc2626;">Required:</strong> Click on the map to set the photometer location, or enter coordinates manually.';
+                    document.getElementById('positionNote').style.color = '#991b1b';
+                    
+                    // Show edit mode by default
+                    document.getElementById('positionDisplay').classList.add('hidden');
+                    document.getElementById('positionEdit').classList.remove('hidden');
+                } else {
+                    // GPS coordinates found in file
+                    console.log('✅ Valid GPS coordinates found in file:', parsedData.position);
+                    tempPosition = {
+                        lat: parseFloat(parsedData.position.lat),
+                        lon: parseFloat(parsedData.position.lon),
+                        alt: parseFloat(parsedData.position.alt)
+                    };
+                    positionValidated = true;
+                    
+                    // No warning needed
+                    document.getElementById('warningBox').classList.add('hidden');
+                    
+                    // Set success message
+                    document.getElementById('positionTitle').innerHTML = 
+                        '📍 Geographic position verification';
+                    document.getElementById('positionNote').innerHTML = 
+                        'Position detected from first file';
+                    document.getElementById('positionNote').style.color = '#1e40af';
+                    
+                    // Show display mode
+                    document.getElementById('positionDisplay').classList.remove('hidden');
+                    document.getElementById('positionEdit').classList.add('hidden');
+                }
+                
+                // Update all display fields
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+                
+                // Show position box
+                document.getElementById('positionBox').classList.remove('hidden');
+                
+                // Show process button only if validated
+                if (positionValidated) {
+                    document.getElementById('processBtn').classList.remove('hidden');
+                    document.getElementById('optionsBox').classList.remove('hidden');
+                } else {
+                    console.log('Process button hidden - position needs validation');
+                }
+                
+                // Always initialize map (with delay to ensure DOM is ready)
+                setTimeout(() => {
+                    initPreviewMap();
+                }, 150);
+                
+            } catch (err) {
+                console.error('Error in handleFilesLoaded:', err);
+                showError("Error loading files: " + err.message);
+            }
+        }
+
+        function displayFilesList() {
+            const listDiv = document.getElementById('filesList');
+            listDiv.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const div = document.createElement('div');
+                div.className = 'file-item';
+                div.innerHTML = `
+                    <span class="file-item-name">✓ ${file.name}</span>
+                    <span class="file-item-remove" onclick="removeFile(${index})">✕</span>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            listDiv.classList.remove('hidden');
+            document.getElementById('fileCount').textContent = selectedFiles.length;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            if (selectedFiles.length === 0) {
+                document.getElementById('filesList').classList.add('hidden');
+                document.getElementById('positionBox').classList.add('hidden');
+                document.getElementById('processBtn').classList.add('hidden');
+            } else {
+                displayFilesList();
+            }
+        }
+
+        function parseFile(content) {
+            const lines = content.split('\n');
+            let position = null, headerLines = [], dataLines = [], inHeader = true;
+
+            for (let line of lines) {
+                if (line.startsWith('# Position:')) {
+                    const coords = line.split(':')[1].trim().split(',');
+                    const lat = parseFloat(coords[0]);
+                    const lon = parseFloat(coords[1]);
+                    const alt = parseFloat(coords[2]);
+                    
+                    // Only set position if all values are valid numbers
+                    if (!isNaN(lat) && !isNaN(lon) && !isNaN(alt)) {
+                        position = { lat, lon, alt };
+                        console.log('Valid position found in file:', position);
+                    } else {
+                        console.log('Position line found but values are invalid:', coords);
+                    }
+                }
+                
+                if (line.includes('END OF HEADER')) {
+                    inHeader = false;
+                    const parts = line.split('END OF HEADER');
+                    headerLines.push(parts[0] + 'END OF HEADER');
+                    if (parts[1]?.trim()) dataLines.push(parts[1]);
+                    continue;
+                }
+                
+                (inHeader ? headerLines : dataLines).push(line);
+            }
+            
+            console.log('parseFile result - position:', position);
+            return { position, headerLines, dataLines };
+        }
+
+        function showPositionBox() {
+            // Only update if values are valid
+            if (tempPosition && !isNaN(tempPosition.lat) && !isNaN(tempPosition.lon) && !isNaN(tempPosition.alt)) {
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+            }
+            
+            document.getElementById('positionBox').classList.remove('hidden');
+            
+            // Only show process button if position is validated
+            if (positionValidated) {
+                document.getElementById('processBtn').classList.remove('hidden');
+                document.getElementById('optionsBox').classList.remove('hidden');
+            } else {
+                document.getElementById('processBtn').classList.add('hidden');
+                document.getElementById('optionsBox').classList.add('hidden');
+            }
+        }
+
+        // ========== SOLAR FLUX FUNCTIONS ==========
+        
+        async function handleSolarFluxToggle() {
+            const toggle = document.getElementById('solarFluxToggle');
+            solarFluxEnabled = toggle.checked;
+            
+            const statusBox = document.getElementById('solarFluxStatus');
+            const statusText = document.getElementById('solarFluxStatusText');
+            const manualUploadBox = document.getElementById('solarFluxManualUpload');
+            
+            if (solarFluxEnabled) {
+                // Load data if not already loaded
+                if (!solarFluxData && !solarFluxLoading) {
+                    statusBox.classList.remove('hidden');
+                    statusBox.style.background = 'rgba(59, 130, 246, 0.1)';
+                    statusBox.style.color = '#60a5fa';
+                    statusText.textContent = '⏳ Loading Solar Flux data from server...';
+                    manualUploadBox.classList.add('hidden');
+                    
+                    const success = await fetchSolarFluxData();
+                    
+                    if (success) {
+                        statusBox.style.background = 'rgba(34, 197, 94, 0.1)';
+                        statusBox.style.color = '#4ade80';
+                        const dataCount = Object.keys(solarFluxData).length;
+                        statusText.textContent = `✅ Solar Flux data loaded successfully! (${dataCount} days available)`;
+                        manualUploadBox.classList.add('hidden');
+                    } else {
+                        statusBox.style.background = 'rgba(220, 38, 38, 0.1)';
+                        statusBox.style.color = '#f87171';
+                        statusText.textContent = '❌ Failed to load Solar Flux data automatically (CORS blocked).';
+                        // Show manual upload option
+                        manualUploadBox.classList.remove('hidden');
+                        toggle.checked = false;
+                        solarFluxEnabled = false;
+                    }
+                } else if (solarFluxData) {
+                    // Data already loaded
+                    statusBox.classList.remove('hidden');
+                    statusBox.style.background = 'rgba(34, 197, 94, 0.1)';
+                    statusBox.style.color = '#4ade80';
+                    const dataCount = Object.keys(solarFluxData).length;
+                    statusText.textContent = `✅ Solar Flux will be added (${dataCount} days available)`;
+                    manualUploadBox.classList.add('hidden');
+                }
+            } else {
+                // Hide status when disabled
+                statusBox.classList.add('hidden');
+                manualUploadBox.classList.add('hidden');
+            }
+        }
+        
+        async function fetchSolarFluxData() {
+            if (solarFluxLoading) return false;
+            
+            solarFluxLoading = true;
+            console.log('📡 Fetching Solar Flux data...');
+            
+            // Try multiple URLs in order
+            const urls = [
+                // Option 1: Your proxy (RECOMMENDED - configure this on your server)
+                './solar-flux-proxy.php',
+                
+                // Option 2: Direct URL (will likely fail due to CORS)
+                'https://www.spaceweather.gc.ca/solar_flux_data/daily_flux_values/fluxtable.txt',
+                
+                // Option 3: Alternative proxy (if you set one up)
+                // 'https://your-domain.com/api/solar-flux'
+            ];
+            
+            for (let i = 0; i < urls.length; i++) {
+                const url = urls[i];
+                console.log(`Trying URL ${i + 1}/${urls.length}: ${url}`);
+                
+                try {
+                    const response = await fetch(url, {
+                        method: 'GET',
+                        mode: 'cors',
+                        cache: 'default'
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const text = await response.text();
+                    
+                    // Validate the response contains expected data
+                    if (!text.includes('fluxdate') || !text.includes('fluxobsflux')) {
+                        throw new Error('Invalid data format');
+                    }
+                    
+                    console.log('✅ Solar Flux data fetched, parsing...');
+                    
+                    solarFluxData = parseSolarFluxData(text);
+                    console.log(`✅ Parsed ${Object.keys(solarFluxData).length} days of Solar Flux data`);
+                    
+                    solarFluxLoading = false;
+                    return true;
+                    
+                } catch (error) {
+                    console.warn(`❌ Failed with ${url}:`, error.message);
+                    // Continue to next URL
+                }
+            }
+            
+            // All URLs failed
+            console.error('❌ All Solar Flux data sources failed. CORS policy may be blocking requests.');
+            console.error('💡 Solution: Set up solar-flux-proxy.php on your server (see documentation)');
+            solarFluxLoading = false;
+            return false;
+        }
+        
+        function handleSolarFluxFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const statusBox = document.getElementById('solarFluxStatus');
+            const statusText = document.getElementById('solarFluxStatusText');
+            const manualUploadBox = document.getElementById('solarFluxManualUpload');
+            const toggle = document.getElementById('solarFluxToggle');
+            
+            statusBox.classList.remove('hidden');
+            statusBox.style.background = 'rgba(59, 130, 246, 0.1)';
+            statusBox.style.color = '#60a5fa';
+            statusText.textContent = '⏳ Reading uploaded Solar Flux file...';
+            
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    
+                    // Validate the file contains expected data
+                    if (!text.includes('fluxdate') || !text.includes('fluxobsflux')) {
+                        throw new Error('Invalid file format. Expected fluxtable.txt from Space Weather Canada.');
+                    }
+                    
+                    console.log('✅ Solar Flux file uploaded, parsing...');
+                    solarFluxData = parseSolarFluxData(text);
+                    console.log(`✅ Parsed ${Object.keys(solarFluxData).length} days of Solar Flux data`);
+                    
+                    // Success
+                    statusBox.style.background = 'rgba(34, 197, 94, 0.1)';
+                    statusBox.style.color = '#4ade80';
+                    const dataCount = Object.keys(solarFluxData).length;
+                    statusText.textContent = `✅ Solar Flux data loaded from file! (${dataCount} days available)`;
+                    manualUploadBox.classList.add('hidden');
+                    
+                    // Enable the toggle
+                    toggle.checked = true;
+                    solarFluxEnabled = true;
+                    
+                } catch (error) {
+                    console.error('❌ Error parsing uploaded Solar Flux file:', error);
+                    statusBox.style.background = 'rgba(220, 38, 38, 0.1)';
+                    statusBox.style.color = '#f87171';
+                    statusText.textContent = `❌ Error: ${error.message}`;
+                    toggle.checked = false;
+                    solarFluxEnabled = false;
+                }
+            };
+            
+            reader.onerror = function() {
+                statusBox.style.background = 'rgba(220, 38, 38, 0.1)';
+                statusBox.style.color = '#f87171';
+                statusText.textContent = '❌ Error reading file.';
+                toggle.checked = false;
+                solarFluxEnabled = false;
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        function parseSolarFluxData(text) {
+            const lines = text.split('\n');
+            const dailyData = {}; // Will store: {YYYYMMDD: [flux1, flux2, flux3]}
+            const dailyAverages = {}; // Will store: {YYYYMMDD: average_flux}
+            
+            for (let line of lines) {
+                // Skip header lines and empty lines
+                if (line.startsWith('flux') || line.startsWith('---') || line.trim() === '') {
+                    continue;
+                }
+                
+                // Split by whitespace
+                const parts = line.trim().split(/\s+/);
+                
+                if (parts.length >= 5) {
+                    const fluxdate = parts[0];  // YYYYMMDD
+                    const fluxobsflux = parseFloat(parts[4]);  // 5th column is fluxobsflux
+                    
+                    // Only add valid flux values
+                    if (!isNaN(fluxobsflux) && fluxobsflux > 0) {
+                        if (!dailyData[fluxdate]) {
+                            dailyData[fluxdate] = [];
+                        }
+                        dailyData[fluxdate].push(fluxobsflux);
+                    }
+                }
+            }
+            
+            // Calculate daily averages
+            for (let date in dailyData) {
+                const values = dailyData[date];
+                const average = values.reduce((sum, val) => sum + val, 0) / values.length;
+                dailyAverages[date] = parseFloat(average.toFixed(1)); // Round to 1 decimal
+            }
+            
+            console.log(`Calculated averages for ${Object.keys(dailyAverages).length} days`);
+            console.log('Sample data (first 3 days):', Object.entries(dailyAverages).slice(0, 3));
+            
+            return dailyAverages;
+        }
+        
+        function getSolarFluxForDate(dateStr) {
+            // dateStr should be in format YYYY-MM-DD
+            // Convert to YYYYMMDD for lookup
+            const cleanDate = dateStr.replace(/-/g, '').substring(0, 8);
+            
+            if (solarFluxData && solarFluxData[cleanDate]) {
+                return solarFluxData[cleanDate];
+            }
+            
+            return null; // No data available for this date
+        }
+
+        // ========== END SOLAR FLUX FUNCTIONS ==========
+
+
+        function toggleEdit() {
+            const display = document.getElementById('positionDisplay');
+            const edit = document.getElementById('positionEdit');
+            
+            if (edit.classList.contains('hidden')) {
+                // Entering edit mode
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+                display.classList.add('hidden');
+                edit.classList.remove('hidden');
+            } else {
+                // Validating position
+                const newLat = parseFloat(document.getElementById('editLat').value);
+                const newLon = parseFloat(document.getElementById('editLon').value);
+                const newAlt = parseFloat(document.getElementById('editAlt').value);
+                
+                // Validate coordinates
+                if (isNaN(newLat) || isNaN(newLon) || isNaN(newAlt)) {
+                    showError('Invalid coordinates. Please enter valid numbers.');
+                    return;
+                }
+                
+                if (newLat < -90 || newLat > 90) {
+                    showError('Latitude must be between -90 and 90 degrees.');
+                    return;
+                }
+                
+                if (newLon < -180 || newLon > 180) {
+                    showError('Longitude must be between -180 and 180 degrees.');
+                    return;
+                }
+                
+                tempPosition.lat = newLat;
+                tempPosition.lon = newLon;
+                tempPosition.alt = newAlt;
+                
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                
+                // Mark position as validated
+                positionValidated = true;
+                
+                // Clear any warning or error messages
+                document.getElementById('errorBox').classList.add('hidden');
+                document.getElementById('warningBox').classList.add('hidden');
+                
+                // Update UI to show position is now valid
+                document.getElementById('positionTitle').innerHTML = 
+                    '✅ Position validated';
+                document.getElementById('positionNote').innerHTML = 
+                    'TESS-W location has been set. You can now process the files.';
+                document.getElementById('positionNote').style.color = '#166534';
+                
+                display.classList.remove('hidden');
+                edit.classList.add('hidden');
+                
+                if (previewMarker && previewMap) {
+                    previewMarker.setLatLng([tempPosition.lat, tempPosition.lon]);
+                    previewMap.setView([tempPosition.lat, tempPosition.lon], 10);
+                    previewMarker.setPopupContent(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`);
+                }
+                
+                // Show process button
+                document.getElementById('processBtn').classList.remove('hidden');
+            }
+        }
+
+        function initPreviewMap() {
+            console.log('initPreviewMap called with position:', tempPosition);
+            
+            // Ensure we have valid coordinates (use Montreal as absolute fallback)
+            if (!tempPosition || isNaN(tempPosition.lat) || isNaN(tempPosition.lon)) {
+                console.warn('Invalid coordinates detected, using Montreal as fallback');
+                tempPosition = {
+                    lat: 45.5017,
+                    lon: -73.5673,
+                    alt: 50
+                };
+                // Update display
+                document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                document.getElementById('displayAlt').textContent = tempPosition.alt;
+                document.getElementById('editLat').value = tempPosition.lat;
+                document.getElementById('editLon').value = tempPosition.lon;
+                document.getElementById('editAlt').value = tempPosition.alt;
+            }
+            
+            // Clean up existing map
+            if (previewMap) {
+                try {
+                    previewMap.off();
+                    previewMap.remove();
+                } catch (e) {
+                    console.log('Note: Error removing previous map (this is normal on first load):', e);
+                }
+                previewMap = null;
+                previewMarker = null;
+            }
+            
+            // Clear map container
+            const mapContainer = document.getElementById('map');
+            if (!mapContainer) {
+                console.error('Map container not found!');
+                return;
+            }
+            mapContainer.innerHTML = '';
+            
+            // Initialize map with valid coordinates
+            try {
+                console.log('Creating map at:', tempPosition.lat, tempPosition.lon);
+                
+                previewMap = L.map('map').setView([tempPosition.lat, tempPosition.lon], 8);
+                
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '© OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(previewMap);
+
+                previewMarker = L.marker([tempPosition.lat, tempPosition.lon], { 
+                    draggable: true,
+                    icon: redPinIcon 
+                }).addTo(previewMap);
+                
+                previewMarker.bindPopup(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`).openPopup();
+
+                // Handle marker drag
+                previewMarker.on('dragend', function(e) {
+                    const pos = e.target.getLatLng();
+                    tempPosition.lat = parseFloat(pos.lat.toFixed(5));
+                    tempPosition.lon = parseFloat(pos.lng.toFixed(5));
+                    document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                    document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                    document.getElementById('editLat').value = tempPosition.lat;
+                    document.getElementById('editLon').value = tempPosition.lon;
+                    previewMarker.setPopupContent(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`);
+                });
+
+                // Handle map click
+                previewMap.on('click', function(e) {
+                    tempPosition.lat = parseFloat(e.latlng.lat.toFixed(5));
+                    tempPosition.lon = parseFloat(e.latlng.lng.toFixed(5));
+                    previewMarker.setLatLng(e.latlng);
+                    document.getElementById('displayLat').textContent = tempPosition.lat.toFixed(5);
+                    document.getElementById('displayLon').textContent = tempPosition.lon.toFixed(5);
+                    document.getElementById('editLat').value = tempPosition.lat;
+                    document.getElementById('editLon').value = tempPosition.lon;
+                    previewMarker.setPopupContent(`<strong>Observatory</strong><br>Lat: ${tempPosition.lat.toFixed(5)}°<br>Lon: ${tempPosition.lon.toFixed(5)}°`);
+                });
+                
+                console.log('Map initialized successfully');
+                
+            } catch (e) {
+                console.error('Error initializing map:', e);
+                showError('Unable to load map. Please refresh the page and try again.');
+            }
+        }
+
+        async function processFiles() {
+            const btn = document.getElementById('processBtn');
+            btn.disabled = true;
+            
+            document.getElementById('progressBox').classList.remove('hidden');
+            processedResults = [];
+            combinedResults = [];  // Reset combined results
+            let allDataLines = [];  // Collect all data lines
+            let commonHeader = null;
+            let photometerId = null;
+
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
+                const progress = Math.round(((i + 1) / selectedFiles.length) * 100);
+                
+                document.getElementById('progressText').textContent = `File ${i + 1}/${selectedFiles.length}: ${file.name}`;
+                document.getElementById('progressFill').style.width = progress + '%';
+                document.getElementById('progressFill').textContent = progress + '%';
+
+                try {
+                    const content = await file.text();
+                    const result = await processFile(file.name, content);
+                    processedResults.push(result);
+                    
+                    // Keep header from first file
+                    if (i === 0) {
+                        commonHeader = result.headerLines;
+                        // Extract photometer ID
+                        const photometerMatch = file.name.match(/(stars\d+)/i);
+                        photometerId = photometerMatch ? photometerMatch[1].toLowerCase() : 'unknown';
+                    }
+                    
+                    // Collect all data lines
+                    allDataLines = allDataLines.concat(result.processedDataLines);
+                    
+                } catch (err) {
+                    console.error(`Error on ${file.name}:`, err);
+                }
+
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Create combined file if multiple files
+            if (selectedFiles.length > 1) {
+                // Sort data chronologically and filter empty lines
+                const sortedData = allDataLines
+                    .filter(line => line.trim() !== '')
+                    .sort((a, b) => {
+                        const dateA = a.split(';')[0];
+                        const dateB = b.split(';')[0];
+                        return dateA.localeCompare(dateB);
+                    });
+                
+                console.log('Recalculating standard deviation for combined file...');
+                // Recalculate rolling standard deviation on combined data
+                // This fixes NaN values at the start of each month (except the first 9 lines overall)
+                const recalculatedData = recalculateStdDevForCombined(sortedData, solarFluxEnabled);
+
+                
+                combinedResults.push({
+                    photometerId: photometerId,
+                    filename: `${photometerId}_combined_all_data.dat`,
+                    content: [...commonHeader, ...recalculatedData].join('\n'),
+                    linesProcessed: recalculatedData.length,
+                    fileCount: selectedFiles.length
+                });
+            }
+
+            document.getElementById('progressBox').classList.add('hidden');
+            showResults();
+            btn.disabled = false;
+        }
+
+        async function processFile(filename, content) {
+            const parsed = parseFile(content);
+            const { headerLines, dataLines } = parsed;
+            
+            let outputLines = [...headerLines];
+            
+            // Find the column names line (line #33) and units line (line #34)
+            // These are typically the 2 lines before END OF HEADER
+            const headerIndex = outputLines.findIndex(line => line.includes('END OF HEADER'));
+            
+            // Line #33 is column names (2 lines before END OF HEADER) - uses COMMAS
+            // Line #34 is units (1 line before END OF HEADER) - uses SEMICOLONS
+            if (headerIndex >= 2) {
+                const namesLineIndex = headerIndex - 2;  // Line #33
+                const unitsLineIndex = headerIndex - 1;  // Line #34
+                
+                // Append column names for new columns to line #33 (with COMMAS)
+                if (outputLines[namesLineIndex]) {
+                    let newColumns = ', sun_alt, moon_alt, gal_lat, sd_10min';
+                    if (solarFluxEnabled) {
+                        newColumns += ', solar_flux';
+                    }
+                    outputLines[namesLineIndex] = outputLines[namesLineIndex].trimEnd() + newColumns;
+                }
+                
+                // Append units for new columns to line #34 (with SEMICOLONS)
+                if (outputLines[unitsLineIndex]) {
+                    let newUnits = '; deg; deg; deg; mag/arcsec^2';
+                    if (solarFluxEnabled) {
+                        newUnits += '; sfu';
+                    }
+                    outputLines[unitsLineIndex] = outputLines[unitsLineIndex].trimEnd() + newUnits;
+                }
+            }
+            
+            // Collecter toutes les valeurs MSAS pour le calcul de l'écart-type roulant
+            const msasWindow = [];
+            const timestampWindow = [];
+            
+            const processedData = dataLines.map((line, index) => {
+                if (!line.trim()) return '';
+                const parts = line.split(';');
+                if (parts.length < 7) return line;
+                
+                try {
+                    // Extract the essential columns for calculations
+                    const utcDt = parts[0];
+                    const localDt = parts[1];
+                    const msas = parts[5];
+                    
+                    // Debug: display first line to check format
+                    if (index === 0) {
+                        console.log('Date format detected:', utcDt);
+                        console.log('Original columns:', parts.length);
+                    }
+                    
+                    // Astronomical calculations
+                    const astro = calcAstro(utcDt, tempPosition.lat, tempPosition.lon);
+                    
+                    // Add MSAS value and timestamp to sliding windows
+                    const msasValue = parseFloat(msas);
+                    if (!isNaN(msasValue)) {
+                        msasWindow.push(msasValue);
+                        timestampWindow.push(utcDt);
+                        
+                        // Keep only last 10 minutes (10 values)
+                        if (msasWindow.length > 10) {
+                            msasWindow.shift();
+                            timestampWindow.shift();
+                        }
+                    }
+                    
+                    // Calculate rolling standard deviation with temporal continuity check
+                    const sd10min = calculateStdDevWithTimeCheck(msasWindow, timestampWindow);
+                    
+                    // Get Solar Flux value if enabled
+                    let solarFluxValue = '';
+                    if (solarFluxEnabled) {
+                        const flux = getSolarFluxForDate(utcDt);
+                        solarFluxValue = (flux !== null) ? flux : 'NaN';
+                    }
+                    
+                    // IMPORTANT: Keep ALL original columns, then add new ones
+                    // Join all original parts back together
+                    let outputLine = parts.join(';');
+                    
+                    // Add new calculated columns at the end
+                    outputLine += `;${astro.sunAlt};${astro.moonAlt};${astro.galLat};${sd10min}`;
+                    
+                    if (solarFluxEnabled) {
+                        outputLine += `;${solarFluxValue}`;
+                    }
+                    
+                    return outputLine;
+                } catch (err) {
+                    console.error('Error on line', index, ':', err, 'Line:', line);
+                    return line;
+                }
+            });
+            
+            return {
+                filename: filename,
+                content: [...outputLines, ...processedData].join('\n'),
+                headerLines: outputLines,
+                processedDataLines: processedData,
+                linesProcessed: dataLines.filter(l => l.trim() && l.split(';').length >= 7).length
+            };
+        }
+
+        function calculateStdDev(values) {
+            // Display NaN if less than 10 values available
+            if (values.length < 10) return 'NaN';
+            
+            const n = values.length;
+            const mean = values.reduce((sum, val) => sum + val, 0) / n;
+            const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
+            const stdDev = Math.sqrt(variance);
+            
+            return stdDev.toFixed(4);
+        }
+        
+        function calculateStdDevWithTimeCheck(values, timestamps) {
+            // Need at least 10 values
+            if (values.length < 10 || timestamps.length < 10) {
+                return 'NaN';
+            }
+            
+            // Check temporal continuity
+            // Measurements should be about 1 minute apart
+            // We need 10 consecutive measurements = 9 minutes span
+            
+            try {
+                // Parse timestamps (format: YYYY-MM-DDTHH:MM:SS or YYYY-MM-DD HH:MM:SS)
+                const dates = timestamps.map(ts => {
+                    const cleanTs = ts.trim().split('.')[0]; // Remove milliseconds if present
+                    if (cleanTs.includes('T')) {
+                        return new Date(cleanTs + 'Z'); // ISO format
+                    } else if (cleanTs.includes(' ')) {
+                        return new Date(cleanTs.replace(' ', 'T') + 'Z'); // Space format
+                    }
+                    return new Date(cleanTs);
+                });
+                
+                // Check all dates are valid
+                if (dates.some(d => isNaN(d.getTime()))) {
+                    console.warn('Invalid date in window, returning NaN for std dev');
+                    return 'NaN';
+                }
+                
+                // Check time span (should be around 9 minutes for 10 measurements)
+                const oldestTime = dates[0].getTime();
+                const newestTime = dates[dates.length - 1].getTime();
+                const spanMinutes = (newestTime - oldestTime) / (1000 * 60);
+                
+                // Should be between 8 and 11 minutes (allowing some tolerance)
+                if (spanMinutes < 8 || spanMinutes > 11) {
+                    return 'NaN';
+                }
+                
+                // Check for gaps between consecutive measurements
+                // No gap should exceed 3 minutes
+                for (let i = 1; i < dates.length; i++) {
+                    const gapMinutes = (dates[i].getTime() - dates[i-1].getTime()) / (1000 * 60);
+                    if (gapMinutes > 3) {
+                        // Gap detected - measurements not continuous
+                        return 'NaN';
+                    }
+                }
+                
+                // All checks passed - calculate standard deviation
+                const n = values.length;
+                const mean = values.reduce((sum, val) => sum + val, 0) / n;
+                const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / n;
+                const stdDev = Math.sqrt(variance);
+                
+                return stdDev.toFixed(4);
+                
+            } catch (err) {
+                console.error('Error in calculateStdDevWithTimeCheck:', err);
+                return 'NaN';
+            }
+        }
+
+        function recalculateStdDevForCombined(dataLines, hasSolarFlux) {
+            // Recalculate rolling standard deviation for combined data
+            // This fixes NaN values that appear at the start of each month when files are combined
+            // AND checks for temporal continuity to handle interruptions
+            const msasWindow = [];
+            const timestampWindow = [];
+            
+            return dataLines.map((line, index) => {
+                if (!line.trim()) return '';
+                const parts = line.split(';');
+                
+                // We need at least the original columns plus our added columns
+                // Original: typically 7-8 columns
+                // Added: sun_alt, moon_alt, gal_lat, sd_10min (4 columns)
+                // Optionally: solar_flux (1 column)
+                if (parts.length < 11) return line; // Not enough columns
+                
+                try {
+                    // Extract MSAS value (always at index 5 in TESS-W format)
+                    const msas = parseFloat(parts[5]);
+                    
+                    // Extract timestamp (UTC timestamp at index 0)
+                    const utcDt = parts[0];
+                    
+                    if (!isNaN(msas)) {
+                        msasWindow.push(msas);
+                        timestampWindow.push(utcDt);
+                        
+                        // Keep only last 10 values
+                        if (msasWindow.length > 10) {
+                            msasWindow.shift();
+                            timestampWindow.shift();
+                        }
+                    }
+                    
+                    // Recalculate standard deviation with temporal continuity check
+                    const sd10min = calculateStdDevWithTimeCheck(msasWindow, timestampWindow);
+                    
+                    // Position of sd_10min column
+                    // It's always 4th from the end if no solar_flux, or 5th from the end if solar_flux
+                    // Without solar_flux: [..., sun_alt, moon_alt, gal_lat, sd_10min]
+                    // With solar_flux: [..., sun_alt, moon_alt, gal_lat, sd_10min, solar_flux]
+                    const sdIndex = hasSolarFlux ? parts.length - 2 : parts.length - 1;
+                    
+                    // Replace the sd_10min column with recalculated value
+                    parts[sdIndex] = sd10min;
+                    
+                    return parts.join(';');
+                } catch (err) {
+                    console.error('Error recalculating std dev for line', index, ':', err);
+                    return line;
+                }
+            });
+        }
+
+        function calcAstro(utcDateStr, lat, lon) {
+            // Parse UTC date correctly
+            // Possible formats: "2024-01-15T12:30:45", "2024-01-15 12:30:45", "2024-01-15T12:30:45.123"
+            let dateStr = utcDateStr.trim();
+            
+            // Remove milliseconds if present
+            dateStr = dateStr.split('.')[0];
+            
+            // Create date in UTC
+            let date;
+            
+            // Try different formats
+            if (dateStr.includes('T')) {
+                // ISO format with T
+                date = new Date(dateStr + 'Z'); // Add Z to force UTC
+            } else if (dateStr.includes(' ')) {
+                // Format with space - replace with T and add Z
+                date = new Date(dateStr.replace(' ', 'T') + 'Z');
+            } else {
+                // Unknown format - try directly
+                date = new Date(dateStr);
+            }
+            
+            // Check that date is valid
+            if (isNaN(date.getTime())) {
+                console.error('Invalid date:', utcDateStr, '-> parsed as:', date);
+                return {
+                    sunAlt: 'NaN',
+                    moonAlt: 'NaN',
+                    galLat: 'NaN'
+                };
+            }
+            
+            // Calculate Julian Day from UTC date
+            const jd = (date.getTime() / 86400000) + 2440587.5;
+            
+            // Check that JD is valid
+            if (isNaN(jd)) {
+                console.error('Invalid JD for date:', utcDateStr);
+                return {
+                    sunAlt: 'NaN',
+                    moonAlt: 'NaN',
+                    galLat: 'NaN'
+                };
+            }
+            
+            // Calculate zenith position in galactic coordinates
+            const lmst = getLMST(jd, lon);
+            const zenith = azElToRaDec(0, 90, lat, lmst);
+            const galactic = raDecToGalactic(zenith.ra, zenith.dec);
+            
+            // Check calculated values
+            const sunAlt = calcSunAlt(jd, lat, lon);
+            const moonAlt = calcMoonAlt(jd, lat, lon);
+            
+            return {
+                sunAlt: (isNaN(sunAlt) ? 'NaN' : sunAlt.toFixed(2)),
+                moonAlt: (isNaN(moonAlt) ? 'NaN' : moonAlt.toFixed(2)),
+                galLat: (isNaN(galactic.lat) ? 'NaN' : galactic.lat.toFixed(2))
+            };
+        }
+
+        function getLMST(jd, lon) {
+            const T = (jd - 2451545.0) / 36525.0;
+            const gmst = (280.46061837 + 360.98564736629 * (jd - 2451545.0) + T * T * (0.000387933 - T / 38710000.0)) % 360;
+            return (gmst + lon + 360) % 360;
+        }
+
+        function azElToRaDec(az, el, lat, lmst) {
+            const toRad = Math.PI / 180;
+            const azR = az * toRad, elR = el * toRad, latR = lat * toRad;
+            const sinDec = Math.sin(elR) * Math.sin(latR) + Math.cos(elR) * Math.cos(latR) * Math.cos(azR);
+            const dec = Math.asin(sinDec);
+            const ha = Math.atan2(-Math.cos(elR) * Math.sin(azR) / Math.cos(dec), (Math.sin(elR) - Math.sin(latR) * sinDec) / (Math.cos(latR) * Math.cos(dec)));
+            return { ra: ((lmst * toRad - ha) * 180 / Math.PI + 360) % 360, dec: dec * 180 / Math.PI };
+        }
+
+        function raDecToGalactic(ra, dec) {
+            const toRad = Math.PI / 180;
+            const raNGP = 192.859508 * toRad, decNGP = 27.128336 * toRad, lNCP = 122.932 * toRad;
+            const raR = ra * toRad, decR = dec * toRad;
+            const b = Math.asin(Math.sin(decR) * Math.sin(decNGP) + Math.cos(decR) * Math.cos(decNGP) * Math.cos(raR - raNGP));
+            const l = lNCP - Math.atan2(Math.cos(decR) * Math.sin(raR - raNGP), Math.sin(decR) * Math.cos(decNGP) - Math.cos(decR) * Math.sin(decNGP) * Math.cos(raR - raNGP));
+            return { lon: (l * 180 / Math.PI + 360) % 360, lat: b * 180 / Math.PI };
+        }
+
+        function calcSunAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (280.460 + 0.9856474 * n) % 360;
+            const g = (357.528 + 0.9856003 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 1.915 * Math.sin(g) + 0.020 * Math.sin(2 * g)) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda));
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda), Math.cos(lambda));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function calcMoonAlt(jd, lat, lon) {
+            const n = jd - 2451545.0;
+            const L = (218.316 + 13.176396 * n) % 360;
+            const M = (134.963 + 13.064993 * n) % 360 * Math.PI / 180;
+            const F = (93.272 + 13.229350 * n) % 360 * Math.PI / 180;
+            const lambda = (L + 6.289 * Math.sin(M)) * Math.PI / 180;
+            const beta = 5.128 * Math.sin(F) * Math.PI / 180;
+            const eps = 23.439 * Math.PI / 180;
+            const alpha = Math.atan2(Math.cos(eps) * Math.sin(lambda) * Math.cos(beta) - Math.sin(eps) * Math.sin(beta), Math.cos(lambda) * Math.cos(beta));
+            const delta = Math.asin(Math.sin(eps) * Math.sin(lambda) * Math.cos(beta) + Math.cos(eps) * Math.sin(beta));
+            const lmst = getLMST(jd, lon) * Math.PI / 180;
+            const ha = lmst - alpha;
+            const latR = lat * Math.PI / 180;
+            return Math.asin(Math.sin(latR) * Math.sin(delta) + Math.cos(latR) * Math.cos(delta) * Math.cos(ha)) * 180 / Math.PI;
+        }
+
+        function showResults() {
+            document.getElementById('totalProcessed').textContent = processedResults.length;
+            document.getElementById('resultPosition').textContent = `${tempPosition.lat}°, ${tempPosition.lon}°`;
+            
+            const listDiv = document.getElementById('processedFilesList');
+            listDiv.innerHTML = '';
+            
+            // Add combined files first (one per photometer)
+            combinedResults.forEach((combinedFile, index) => {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.style.background = 'linear-gradient(135deg, rgba(30, 41, 59, 0.8) 0%, rgba(120, 53, 15, 0.3) 100%)'; // Fond sombre avec accent doré
+                div.style.borderColor = 'rgba(251, 191, 36, 0.5)'; // Bordure dorée plus visible
+                div.style.borderWidth = '2px';
+                div.innerHTML = `
+                    <span style="color: #e2e8f0 !important;"><strong style="color: #fbbf24 !important;">📦 ${combinedFile.filename}</strong> <span style="color: rgba(226, 232, 240, 0.8);">(${combinedFile.linesProcessed} lines - ${combinedFile.fileCount} files combined)</span></span>
+                    <button class="download-btn" onclick="downloadCombined(${index})">⬇️ Download</button>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            // Add individual files
+            processedResults.forEach((result, index) => {
+                const div = document.createElement('div');
+                div.className = 'processed-file';
+                div.innerHTML = `
+                    <span style="color: #e2e8f0 !important;">📄 ${result.filename.replace('.dat', '_astrodata.dat')} <span style="color: rgba(226, 232, 240, 0.8);">(${result.linesProcessed} lines)</span></span>
+                    <button class="download-btn" onclick="downloadSingle(${index})">⬇️ Download</button>
+                `;
+                listDiv.appendChild(div);
+            });
+            
+            document.getElementById('resultBox').classList.remove('hidden');
+        }
+
+        function downloadSingle(index) {
+            const result = processedResults[index];
+            const blob = new Blob([result.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = result.filename.replace('.dat', '_astrodata.dat');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function downloadCombined(index) {
+            const combinedFile = combinedResults[index];
+            const blob = new Blob([combinedFile.content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = combinedFile.filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function downloadAllResults() {
+            const zip = new JSZip();
+            
+            // Add all combined files
+            combinedResults.forEach(combinedFile => {
+                zip.file(combinedFile.filename, combinedFile.content);
+            });
+            
+            // Add all individual files
+            processedResults.forEach(result => {
+                zip.file(result.filename.replace('.dat', '_astrodata.dat'), result.content);
+            });
+            
+            const blob = await zip.generateAsync({type: 'blob'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'processed_files.zip';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function showError(msg) {
+            document.getElementById('errorMessage').textContent = msg;
+            document.getElementById('errorBox').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
